@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rapporter - TaskAgent</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            color: #2c3e50;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header-left h1 {
+            color: #3498db;
+            font-size: 2em;
+            margin-bottom: 0.5rem;
+        }
+        
+        .nav-buttons {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        .nav-buttons a {
+            padding: 0.75rem 1.5rem;
+            background: #34495e;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            transition: background 0.3s;
+        }
+        
+        .nav-buttons a:hover {
+            background: #2c3e50;
+        }
+        
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .card h2 {
+            color: #2c3e50;
+            margin-bottom: 1rem;
+            font-size: 1.4em;
+            border-bottom: 2px solid #ecf0f1;
+            padding-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            text-align: center;
+        }
+        
+        .stat-card.green {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+        
+        .stat-card.orange {
+            background: linear-gradient(135deg, #fcb045 0%, #fd1d1d 100%);
+        }
+        
+        .stat-card.blue {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .stat-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+        
+        .filter-bar {
+            background: white;
+            padding: 1rem;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        
+        .filter-group label {
+            font-size: 0.9em;
+            color: #7f8c8d;
+            font-weight: 600;
+        }
+        
+        select, input[type="date"], button {
+            padding: 0.5rem 1rem;
+            border: 2px solid #ecf0f1;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+        
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+        
+        button:hover {
+            background: #2980b9;
+        }
+        
+        .export-btn {
+            background: #27ae60;
+        }
+        
+        .export-btn:hover {
+            background: #229954;
+        }
+        
+        .chart-container {
+            height: 300px;
+            margin: 1rem 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #f8f9fa;
+            border-radius: 8px;
+            color: #7f8c8d;
+            font-style: italic;
+        }
+        
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        
+        .data-table th,
+        .data-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #ecf0f1;
+        }
+        
+        .data-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .data-table tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .time-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            background: #3498db;
+            color: white;
+            border-radius: 15px;
+            font-size: 0.9em;
+            font-weight: 600;
+        }
+        
+        .time-badge.high {
+            background: #e74c3c;
+        }
+        
+        .time-badge.medium {
+            background: #f39c12;
+        }
+        
+        .time-badge.low {
+            background: #27ae60;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 3rem;
+            color: #7f8c8d;
+            font-style: italic;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #7f8c8d;
+        }
+        
+        @media (max-width: 768px) {
+            header {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .filter-bar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .nav-buttons {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-left">
+                <h1>📊 TaskAgent Rapporter</h1>
+                <p>Analyse af tidsforbrug og produktivitet</p>
+            </div>
+            <div class="nav-buttons">
+                <a href="/">🏠 Dashboard</a>
+                <button onclick="exportData('csv')" class="export-btn">📤 Export CSV</button>
+                <button onclick="exportData('json')" class="export-btn">📤 Export JSON</button>
+            </div>
+        </header>
+
+        <!-- Filter Bar -->
+        <div class="filter-bar">
+            <div class="filter-group">
+                <label>Periode:</label>
+                <select id="periodFilter" onchange="loadReports()">
+                    <option value="today">I dag</option>
+                    <option value="week" selected>Denne uge</option>
+                    <option value="month">Denne måned</option>
+                    <option value="custom">Vælg periode</option>
+                </select>
+            </div>
+            
+            <div class="filter-group" id="customDates" style="display: none;">
+                <label>Fra dato:</label>
+                <input type="date" id="startDate" onchange="loadReports()">
+            </div>
+            
+            <div class="filter-group" id="customDatesEnd" style="display: none;">
+                <label>Til dato:</label>
+                <input type="date" id="endDate" onchange="loadReports()">
+            </div>
+            
+            <div class="filter-group">
+                <label>&nbsp;</label>
+                <button onclick="loadReports()">🔄 Opdater</button>
+            </div>
+        </div>
+
+        <!-- Summary Stats -->
+        <div class="stat-grid">
+            <div class="stat-card blue">
+                <div class="stat-value" id="totalTasks">-</div>
+                <div class="stat-label">Antal opgaver</div>
+            </div>
+            <div class="stat-card green">
+                <div class="stat-value" id="totalTime">-</div>
+                <div class="stat-label">Total tid</div>
+            </div>
+            <div class="stat-card orange">
+                <div class="stat-value" id="avgTime">-</div>
+                <div class="stat-label">Gennemsnit pr. opgave</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="activeTasks">-</div>
+                <div class="stat-label">Aktive opgaver</div>
+            </div>
+        </div>
+
+        <div class="dashboard-grid">
+            <!-- Time Report -->
+            <div class="card">
+                <h2>
+                    ⏱️ Tidsrapport
+                    <small id="reportPeriod">Denne uge</small>
+                </h2>
+                <div id="timeReportContent" class="loading">Indlæser...</div>
+            </div>
+
+            <!-- Project Analytics -->
+            <div class="card">
+                <h2>📁 Projekt Analyse</h2>
+                <div id="projectAnalytics" class="loading">Indlæser...</div>
+            </div>
+        </div>
+
+        <div class="dashboard-grid">
+            <!-- Client Analytics -->
+            <div class="card">
+                <h2>🏢 Kunde Analyse</h2>
+                <div id="clientAnalytics" class="loading">Indlæser...</div>
+            </div>
+
+            <!-- Productivity Chart -->
+            <div class="card">
+                <h2>📈 Produktivitetstrend</h2>
+                <div class="chart-container" id="productivityChart">
+                    📊 Graf vil blive vist her (Chart.js integration kommer snart)
+                </div>
+                <div id="productivityData"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="reports.js"></script>
+</body>
+</html>

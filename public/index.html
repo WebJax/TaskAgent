@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskAgent</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px 20px 100px 20px; /* Added bottom padding for menu */
+        }
+        
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            color: white;
+            text-align: left;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            font-weight: 600;
+        }
+        
+        .date-bar {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            justify-content: center;
+            position: relative;
+        }
+        
+        .date-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+        
+        .date-nav:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        .date-nav.prev {
+            left: -50px;
+        }
+        
+        .date-nav.next {
+            right: -50px;
+        }
+        
+        .date-item {
+            text-align: center;
+            color: white;
+            opacity: 0.7;
+            transition: opacity 0.3s;
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 12px;
+            min-width: 44px;
+        }
+        
+        .date-item:hover {
+            opacity: 0.9;
+            background: rgba(45, 90, 160, 0.3);
+        }
+        
+        .date-item.active {
+            opacity: 1;
+            background: white;
+            color: #2d5aa0;
+            padding: 8px 12px;
+        }
+        
+        .date-day {
+            font-size: 12px;
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+        
+        .date-num {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .main-card {
+            background: white;
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            height: 75vh;
+            max-height: 75vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .task-list {
+            list-style: none;
+            flex: 1;
+            overflow-y: auto;
+            margin: 0 -12px;
+            padding: 0 12px;
+        }
+        
+        .task-list::-webkit-scrollbar {
+            width: 4px;
+        }
+        
+        .task-list::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        
+        .task-list::-webkit-scrollbar-thumb {
+            background: #cbd5e0;
+            border-radius: 4px;
+        }
+        
+        .search-bar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        
+        .search-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: none;
+            background: #f5f6fa;
+            border-radius: 12px;
+            font-size: 16px;
+        }
+        
+        .add-btn {
+            background: #4a5568;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 12px 20px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .add-btn:hover {
+            background: #2d3748;
+        }
+        
+        .filter-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+        
+        .filter-tab {
+            padding: 8px 16px;
+            border: none;
+            background: #e2e8f0;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .filter-tab.active {
+            background: #cbd5e0;
+            color: #4a5568;
+        }
+        
+        .task-list {
+            list-style: none;
+        }
+        
+        .task-item {
+            display: flex;
+            align-items: center;
+            padding: 16px 0;
+            border-bottom: 1px solid #f1f5f9;
+            transition: all 0.3s;
+            border-radius: 8px;
+            margin: 4px 0;
+        }
+        
+        .task-item:last-child {
+            border-bottom: none;
+        }
+        
+        .task-item.timing {
+            background: linear-gradient(45deg, #2d5aa0, #4a5568);
+            color: white;
+            padding: 16px 12px;
+            box-shadow: 0 4px 15px rgba(45, 90, 160, 0.3);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); }
+        }
+        
+        .task-checkbox {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #cbd5e0;
+            border-radius: 50%;
+            margin-right: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            flex-shrink: 0;
+        }
+        
+        .task-checkbox:hover {
+            border-color: #a0aec0;
+        }
+        
+        .task-checkbox.completed {
+            background: #48bb78;
+            border-color: #48bb78;
+            position: relative;
+        }
+        
+        .task-checkbox.completed:after {
+            content: '✓';
+            color: white;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .task-content {
+            flex: 1;
+            font-size: 16px;
+            color: #2d3748;
+            transition: all 0.3s;
+        }
+        
+        .task-content.completed {
+            text-decoration: line-through;
+            color: #a0aec0;
+        }
+        
+        .task-item.timing .task-content {
+            color: white;
+        }
+        
+        .task-item.timing .task-timer {
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 600;
+        }
+        
+        .task-timer {
+            font-size: 14px;
+            color: #718096;
+            margin-top: 4px;
+        }
+        
+        .task-actions {
+            opacity: 0;
+            transition: opacity 0.3s;
+            display: flex;
+            gap: 8px;
+        }
+        
+        .task-item:hover .task-actions {
+            opacity: 1;
+        }
+        
+        .task-btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .task-btn.play {
+            background: #48bb78;
+            color: white;
+        }
+        
+        .task-btn.stop {
+            background: #f56565;
+            color: white;
+        }
+        
+        .timer-display {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-family: 'SF Mono', monospace;
+            font-size: 14px;
+            display: none;
+        }
+        
+        .timer-display.active {
+            display: block;
+        }
+        
+        .add-task-form {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .add-task-form.show {
+            display: flex;
+        }
+        
+        .form-content {
+            background: white;
+            border-radius: 20px;
+            padding: 24px;
+            width: 90%;
+            max-width: 400px;
+        }
+        
+        .form-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #2d3748;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 16px;
+            margin-bottom: 16px;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: #2d5aa0;
+        }
+        
+        .form-buttons {
+            display: flex;
+            gap: 12px;
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+        
+        .bottom-menu {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            padding: 16px 20px;
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+        }
+        
+        .menu-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+            padding: 12px 16px;
+            border-radius: 12px;
+            position: relative;
+        }
+        
+        .menu-item:hover {
+            background: #f5f6fa;
+        }
+        
+        .menu-item.active {
+            background: #e3f2fd;
+        }
+        
+        .menu-item.active::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 30px;
+            height: 3px;
+            background: #2d5aa0;
+            border-radius: 2px;
+        }
+        
+        .menu-icon {
+            font-size: 20px;
+            margin-bottom: 4px;
+        }
+        
+        .menu-label {
+            font-size: 10px;
+            color: #718096;
+            font-weight: 500;
+        }
+        
+        .menu-item.active .menu-label {
+            color: #2d5aa0;
+        }
+        
+        .menu-item.active .menu-icon {
+            color: #2d5aa0;
+        }
+        
+        .task-btn.play {
+            background: #2d5aa0;
+            color: white;
+        }
+        
+        .task-btn.stop {
+            background: #4a5568;
+            color: white;
+        }
+        
+        .btn-primary {
+            background: #2d5aa0;
+            color: white;
+        }
+        
+        .edit-btn, .delete-btn {
+            padding: 4px 8px;
+            border: none;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            margin-left: 4px;
+        }
+        
+        .edit-btn {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+        
+        .delete-btn {
+            background: #4a5568;
+            color: white;
+        }
+        
+        .management-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .management-header {
+            flex-shrink: 0;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #e2e8f0;
+            margin-bottom: 12px;
+        }
+        
+        .scrollable-management-list {
+            flex: 1;
+            overflow-y: auto;
+            max-height: calc(75vh - 200px);
+            margin: 0 -12px;
+            padding: 0 12px;
+        }
+        
+        .scrollable-management-list::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .scrollable-management-list::-webkit-scrollbar-track {
+            background: #f7fafc;
+            border-radius: 3px;
+        }
+        
+        .scrollable-management-list::-webkit-scrollbar-thumb {
+            background: #cbd5e0;
+            border-radius: 3px;
+        }
+        
+        .scrollable-management-list::-webkit-scrollbar-thumb:hover {
+            background: #a0aec0;
+        }
+        
+        .scrollable-list {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 0;
+        }
+        
+        .scrollable-list .management-list {
+            margin: 0;
+        }
+        
+        .management-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .recurring-section {
+            margin: 16px 0;
+        }
+        
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: #2d3748;
+            cursor: pointer;
+            margin-bottom: 8px;
+        }
+        
+        .checkbox-label input[type="checkbox"] {
+            margin: 0;
+            cursor: pointer;
+        }
+        
+        .recurring-options {
+            padding-left: 24px;
+            border-left: 2px solid #e2e8f0;
+        }
+        
+        .form-input[type="number"] {
+            text-align: center;
+        }
+        
+        .task-recurring {
+            font-size: 11px;
+            color: #805ad5;
+            margin-top: 2px;
+            font-weight: 500;
+        }
+        
+        .management-item:last-child {
+            border-bottom: none;
+        }
+        
+        .add-form {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .add-project-form {
+            margin-bottom: 20px;
+        }
+        
+        .add-project-form .add-form {
+            margin-bottom: 12px;
+        }
+        
+        .add-form input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+        }
+        
+        .add-form button {
+            padding: 8px 16px;
+            background: #2d5aa0;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        
+        .task-client-info {
+            font-size: 12px;
+            color: #a0aec0;
+            margin-top: 2px;
+        }
+        
+        .task-date {
+            font-size: 11px;
+            color: #718096;
+            margin-top: 2px;
+            font-weight: 500;
+        }
+        
+        .task-item.timing .task-client-info {
+            color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .task-item.timing .task-date {
+            color: rgba(255, 255, 255, 0.9);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>TaskAgent</h1>
+            <span>📄</span>
+        </div>
+        
+        <div class="date-bar">
+            <button class="date-nav prev" id="prevWeek">‹</button>
+            <div class="date-item">
+                <div class="date-day">SAT</div>
+                <div class="date-num">28</div>
+            </div>
+            <div class="date-item">
+                <div class="date-day">SUN</div>
+                <div class="date-num">29</div>
+            </div>
+            <div class="date-item active">
+                <div class="date-day">MON</div>
+                <div class="date-num">30</div>
+            </div>
+            <div class="date-item">
+                <div class="date-day">TUE</div>
+                <div class="date-num">31</div>
+            </div>
+            <div class="date-item">
+                <div class="date-day">WED</div>
+                <div class="date-num">01</div>
+            </div>
+            <div class="date-item">
+                <div class="date-day">THU</div>
+                <div class="date-num">02</div>
+            </div>
+            <div class="date-item">
+                <div class="date-day">FRI</div>
+                <div class="date-num">03</div>
+            </div>
+            <button class="date-nav next" id="nextWeek">›</button>
+        </div>
+        
+        <div class="main-card">
+        <div class="search-container">
+            <div class="search-bar">
+                <input type="text" class="search-input" placeholder="Søg" id="searchInput">
+                <button class="add-btn" id="addBtn">+ OPGAVE</button>
+            </div>
+            
+            <div class="filter-tabs">
+                <button class="filter-tab active" data-filter="all">ALLE</button>
+                <button class="filter-tab" data-filter="active">AKTIVE</button>
+                <button class="filter-tab" data-filter="completed">UDFØRT</button>
+            </div>
+        </div>            <ul class="task-list" id="taskList">
+                <!-- Tasks vil blive indsat her -->
+            </ul>
+        </div>
+    </div>
+    
+    <div class="bottom-menu">
+        <button class="menu-item active" data-view="tasks">
+            <div class="menu-icon">□</div>
+            <div class="menu-label">Opgaver</div>
+        </button>
+        <button class="menu-item" data-view="projects">
+            <div class="menu-icon">▢</div>
+            <div class="menu-label">Projekter</div>
+        </button>
+        <button class="menu-item" data-view="clients">
+            <div class="menu-icon">◯</div>
+            <div class="menu-label">Kunder</div>
+        </button>
+        <button class="menu-item" data-view="reports">
+            <div class="menu-icon">▨</div>
+            <div class="menu-label">Rapporter</div>
+        </button>
+    </div>
+    
+    <div class="timer-display" id="timerDisplay">00:00:00</div>
+    
+    <div class="add-task-form" id="addTaskForm">
+        <div class="form-content">
+            <h2 class="form-title">Tilføj ny opgave</h2>
+            <input type="text" class="form-input" placeholder="Opgave titel..." id="taskTitle">
+            <select class="form-input" id="clientSelect">
+                <option value="">Vælg kunde (valgfri)</option>
+            </select>
+            <select class="form-input" id="projectSelect">
+                <option value="">Vælg projekt (valgfri)</option>
+            </select>
+            
+            <div class="recurring-section">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="isRecurring"> Gentagende opgave
+                </label>
+                <div class="recurring-options" id="recurringOptions" style="display: none;">
+                    <div style="display: flex; gap: 12px; margin-top: 12px;">
+                        <select class="form-input" id="recurrenceType" style="flex: 2;">
+                            <option value="daily">Dagligt</option>
+                            <option value="weekly">Ugentligt</option>
+                            <option value="monthly">Månedligt</option>
+                            <option value="yearly">Årligt</option>
+                        </select>
+                        <input type="number" class="form-input" id="recurrenceInterval" placeholder="Interval" min="1" value="1" style="flex: 1;">
+                    </div>
+                    <div style="font-size: 12px; color: #718096; margin-top: 6px;" id="recurrenceDescription">
+                        Gentages hver dag
+                    </div>
+                </div>
+            </div>
+            <div class="form-buttons">
+                <button class="btn btn-secondary" id="cancelBtn">Annuller</button>
+                <button class="btn btn-primary" id="saveBtn">Tilføj opgave</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>
