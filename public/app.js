@@ -931,8 +931,8 @@ class TaskAgent {
         dateItems.forEach((item, index) => {
             const date = new Date(this.weekStartDate);
             date.setDate(this.weekStartDate.getDate() + index);
-            
-            const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+
+            const dayNames = ['SØN', 'MAN', 'TIR', 'ONS', 'TOR', 'FRE', 'LØR'];
             const dayName = dayNames[date.getDay()];
             const dayNum = date.getDate();
             
