@@ -12,6 +12,20 @@ class TaskAgent {
         this.isTimerRunning = false;
         this.timerInterval = null;
         this.timerStartTime = null;
+        this.activeTaskId = null;
+        
+        // Move task functionality
+        this.selectedTaskForMove = null;
+        
+        // Pause functionality
+        this.isPaused = false;
+        this.pauseInterval = null;
+        this.pauseStartTime = null;
+        this.pauseDuration = 0; // in minutes
+        
+        // PWA functionality
+        this.deferredPrompt = null;
+        this.isInstalled = false;
         
         this.init();
     }
@@ -22,6 +36,150 @@ class TaskAgent {
         await this.loadProjects();
         await this.loadTasks();
         this.updateDateDisplay();
+        this.initializePWA();
+        this.initializeLucideIcons();
+    }
+    
+    initializePWA() {
+        // Register service worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js')
+                .then(registration => {
+                    console.log('PWA: Service Worker registered:', registration);
+                })
+                .catch(error => {
+                    console.error('PWA: Service Worker registration failed:', error);
+                });
+        }
+        
+        // Handle PWA installation prompt
+        window.addEventListener('beforeinstallprompt', (e) => {
+            console.log('PWA: Installation prompt available');
+            e.preventDefault();
+            this.deferredPrompt = e;
+            this.showInstallButton();
+        });
+        
+        // Handle PWA installation
+        window.addEventListener('appinstalled', () => {
+            console.log('PWA: App installed successfully');
+            this.isInstalled = true;
+            this.hideInstallButton();
+            this.showInstallSuccessMessage();
+        });
+        
+        // Check if already installed
+        if (window.matchMedia('(display-mode: standalone)').matches) {
+            this.isInstalled = true;
+            console.log('PWA: Running in standalone mode');
+        }
+        
+        // Handle URL parameters for shortcuts
+        this.handleShortcutActions();
+        
+        // Request notification permission
+        this.requestNotificationPermission();
+    }
+    
+    showInstallButton() {
+        // Add install button to header if not already installed
+        if (!this.isInstalled && !document.getElementById('installBtn')) {
+            const header = document.querySelector('.header');
+            const installBtn = document.createElement('button');
+            installBtn.id = 'installBtn';
+            installBtn.className = 'install-btn';
+            installBtn.innerHTML = '<i data-lucide="download"></i>';
+            installBtn.title = 'Installer som app';
+            installBtn.onclick = () => this.installPWA();
+            
+            // Insert before pause button
+            const pauseBtn = header.querySelector('.pause-btn');
+            header.insertBefore(installBtn, pauseBtn);
+            
+            this.initializeLucideIcons();
+        }
+    }
+    
+    hideInstallButton() {
+        const installBtn = document.getElementById('installBtn');
+        if (installBtn) {
+            installBtn.remove();
+        }
+    }
+    
+    async installPWA() {
+        if (!this.deferredPrompt) return;
+        
+        this.deferredPrompt.prompt();
+        const { outcome } = await this.deferredPrompt.userChoice;
+        
+        console.log('PWA: Installation choice:', outcome);
+        this.deferredPrompt = null;
+        this.hideInstallButton();
+    }
+    
+    showInstallSuccessMessage() {
+        // Show brief success message
+        const message = document.createElement('div');
+        message.className = 'install-success';
+        message.textContent = '✅ App installeret! Find den i din Dock';
+        message.style.cssText = `
+            position: fixed;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #48bb78;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 1001;
+            animation: slideDown 0.3s ease;
+        `;
+        
+        document.body.appendChild(message);
+        
+        setTimeout(() => {
+            message.remove();
+        }, 4000);
+    }
+    
+    handleShortcutActions() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const action = urlParams.get('action');
+        
+        switch (action) {
+            case 'new-task':
+                setTimeout(() => this.showAddTaskForm(), 500);
+                break;
+            case 'pause':
+                setTimeout(() => this.startPause(), 500);
+                break;
+        }
+        
+        // Clean up URL
+        if (action) {
+            history.replaceState({}, document.title, window.location.pathname);
+        }
+    }
+    
+    async requestNotificationPermission() {
+        if ('Notification' in window && 'serviceWorker' in navigator) {
+            const permission = await Notification.requestPermission();
+            console.log('PWA: Notification permission:', permission);
+        }
+    }
+    
+    showNotification(title, options = {}) {
+        if ('serviceWorker' in navigator && Notification.permission === 'granted') {
+            navigator.serviceWorker.ready.then(registration => {
+                registration.showNotification(title, {
+                    icon: '/icons/icon-192x192.png',
+                    badge: '/icons/icon-72x72.png',
+                    ...options
+                });
+            });
+        }
     }
     
     updateDateDisplay() {
@@ -115,17 +273,31 @@ class TaskAgent {
             }
         });
         
+        // Pause display click to stop pause
+        document.getElementById('pauseDisplay').addEventListener('click', () => {
+            if (this.isPaused) {
+                if (confirm('Vil du stoppe pausen nu?')) {
+                    this.stopPause();
+                }
+            }
+        });
+        
         // Event delegation for dynamically created buttons
         document.addEventListener('click', (e) => {
             console.log('Click detected:', e.target.className, e.target.tagName, e.target.dataset);
             
-            if (e.target.classList.contains('edit-btn')) {
+            // Find the actual button element (could be clicked on icon inside)
+            const editBtn = e.target.closest('.edit-btn');
+            const deleteBtn = e.target.closest('.delete-btn'); 
+            const moveBtn = e.target.closest('.move-btn');
+            
+            if (editBtn) {
                 console.log('Edit button clicked');
                 e.preventDefault();
                 e.stopPropagation();
-                const taskId = parseInt(e.target.getAttribute('data-task-id'));
-                const clientId = parseInt(e.target.getAttribute('data-client-id'));
-                const projectId = parseInt(e.target.getAttribute('data-project-id'));
+                const taskId = parseInt(editBtn.getAttribute('data-task-id'));
+                const clientId = parseInt(editBtn.getAttribute('data-client-id'));
+                const projectId = parseInt(editBtn.getAttribute('data-project-id'));
                 
                 console.log('IDs found:', { taskId, clientId, projectId });
                 
@@ -137,18 +309,18 @@ class TaskAgent {
                     console.log('Editing client:', clientId, clientName);
                     this.editClient(clientId, clientName);
                 } else if (projectId) {
-                    const projectName = e.target.getAttribute('data-project-name');
-                    const projectClientId = e.target.getAttribute('data-project-client-id');
+                    const projectName = editBtn.getAttribute('data-project-name');
+                    const projectClientId = editBtn.getAttribute('data-project-client-id');
                     console.log('Editing project:', projectId, projectName);
                     this.editProject(projectId, projectName, projectClientId);
                 }
-            } else if (e.target.classList.contains('delete-btn')) {
+            } else if (deleteBtn) {
                 console.log('Delete button clicked');
                 e.preventDefault();
                 e.stopPropagation();
-                const taskId = parseInt(e.target.getAttribute('data-task-id'));
-                const clientId = parseInt(e.target.getAttribute('data-client-id'));
-                const projectId = parseInt(e.target.getAttribute('data-project-id'));
+                const taskId = parseInt(deleteBtn.getAttribute('data-task-id'));
+                const clientId = parseInt(deleteBtn.getAttribute('data-client-id'));
+                const projectId = parseInt(deleteBtn.getAttribute('data-project-id'));
                 
                 console.log('IDs found for delete:', { taskId, clientId, projectId });
                 
@@ -162,6 +334,32 @@ class TaskAgent {
                     console.log('Deleting project:', projectId);
                     this.deleteProject(projectId);
                 }
+            } else if (moveBtn) {
+                console.log('Move button clicked');
+                e.preventDefault();
+                e.stopPropagation();
+                const taskId = parseInt(moveBtn.getAttribute('data-task-id'));
+                
+                if (taskId) {
+                    console.log('Moving task:', taskId);
+                    this.showMoveTaskModal(taskId);
+                }
+            }
+        });
+        
+        // Move task modal event listeners
+        document.getElementById('cancelMoveBtn').addEventListener('click', () => {
+            this.hideMoveTaskModal();
+        });
+        
+        document.getElementById('confirmMoveBtn').addEventListener('click', () => {
+            this.confirmMoveTask();
+        });
+        
+        // Close move modal when clicking outside
+        document.getElementById('moveTaskModal').addEventListener('click', (e) => {
+            if (e.target.id === 'moveTaskModal') {
+                this.hideMoveTaskModal();
             }
         });
     }
@@ -176,7 +374,14 @@ class TaskAgent {
     
     async loadRecurringCompletions() {
         try {
-            const response = await fetch('/recurring-completions');
+            const timestamp = Date.now();
+            const response = await fetch(`/recurring-completions?t=${timestamp}`, {
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0'
+                }
+            });
             if (response.ok) {
                 this.recurringCompletions = await response.json();
             }
@@ -187,9 +392,18 @@ class TaskAgent {
 
     async loadTasks() {
         try {
-            const response = await fetch('/tasks');
+            const timestamp = Date.now();
+            console.log('Loading tasks with timestamp:', timestamp);
+            const response = await fetch(`/tasks?t=${timestamp}`, {
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0'
+                }
+            });
             if (response.ok) {
                 this.tasks = await response.json();
+                console.log('Loaded tasks from server:', this.tasks.length);
                 await this.loadRecurringCompletions();
                 this.renderTasks();
             }
@@ -200,7 +414,14 @@ class TaskAgent {
     
     async loadClients() {
         try {
-            const response = await fetch('/clients');
+            const timestamp = Date.now();
+            const response = await fetch(`/clients?t=${timestamp}`, {
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0'
+                }
+            });
             if (response.ok) {
                 this.clients = await response.json();
                 this.updateClientOptions();
@@ -212,7 +433,14 @@ class TaskAgent {
     
     async loadProjects() {
         try {
-            const response = await fetch('/projects');
+            const timestamp = Date.now();
+            const response = await fetch(`/projects?t=${timestamp}`, {
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0'
+                }
+            });
             if (response.ok) {
                 this.projects = await response.json();
             }
@@ -262,20 +490,37 @@ class TaskAgent {
         }
         
         try {
-            const response = await fetch('/tasks', {
+            console.log('Creating new task:', taskData);
+            
+            const timestamp = Date.now();
+            const response = await fetch(`/tasks?t=${timestamp}`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache'
                 },
                 body: JSON.stringify(taskData)
             });
             
+            console.log('Create task response status:', response.status);
+            
             if (response.ok) {
                 const newTask = await response.json();
-                this.tasks.unshift(newTask);
-                this.renderTasks();
+                console.log('New task created:', newTask);
+                
+                // Reload all tasks to ensure consistency
+                console.log('Reloading tasks after creation...');
+                await this.loadTasks();
+                console.log('Tasks reloaded, current count:', this.tasks.length);
+                
                 this.hideAddTaskForm();
                 this.resetTaskForm();
+                
+                // Show success message
+                console.log('Task list updated after creation');
+            } else {
+                console.error('Failed to create task:', response.status, response.statusText);
             }
         } catch (error) {
             console.error('Error saving task:', error);
@@ -427,8 +672,119 @@ class TaskAgent {
             if (taskElement) {
                 const task = this.tasks.find(t => t.id === this.activeTaskId);
                 const baseTime = task ? task.time_spent || 0 : 0;
-                const totalSeconds = baseTime + Math.floor(elapsed / 1000);
-                taskElement.textContent = this.formatTime(totalSeconds);
+            }
+        }
+    }
+    
+    startPause() {
+        const minutes = prompt('Hvor mange minutter skal pausen vare?', '5');
+        if (!minutes || isNaN(minutes) || minutes <= 0) return;
+        
+        this.pauseDuration = parseInt(minutes);
+        this.pauseStartTime = Date.now();
+        this.isPaused = true;
+        
+        // Pause active timer if running
+        if (this.activeTaskId) {
+            this.pauseActiveTimer();
+        }
+        
+        // Start pause countdown
+        this.pauseInterval = setInterval(() => {
+            this.updatePauseDisplay();
+        }, 1000);
+        
+        document.getElementById('pauseDisplay').classList.add('active');
+        this.updatePauseDisplay();
+        this.updatePauseButtonIcon();
+    }
+    
+    pauseToggle() {
+        if (this.isPaused) {
+            this.stopPause();
+        } else {
+            this.startPause();
+        }
+    }
+    
+    stopPause() {
+        if (!this.isPaused) return;
+        
+        this.isPaused = false;
+        this.pauseStartTime = null;
+        
+        if (this.pauseInterval) {
+            clearInterval(this.pauseInterval);
+            this.pauseInterval = null;
+        }
+        
+        document.getElementById('pauseDisplay').classList.remove('active');
+        
+        // Resume active timer if it was running
+        if (this.activeTaskId) {
+            this.resumeActiveTimer();
+        }
+        
+        this.updatePauseButtonIcon();
+        
+        // Show notification and alert
+        this.showNotification('Pause færdig! 🎉', {
+            body: 'Din pause er slut. Tilbage til arbejdet!',
+            tag: 'pause-complete',
+            requireInteraction: true
+        });
+        
+        // Show completion message
+        alert('Pause er færdig! 🎉');
+    }
+    
+    pauseActiveTimer() {
+        if (this.timerInterval) {
+            clearInterval(this.timerInterval);
+            this.timerInterval = null;
+        }
+    }
+    
+    resumeActiveTimer() {
+        if (this.activeTaskId) {
+            this.timerInterval = setInterval(() => {
+                this.updateTimerDisplay();
+            }, 1000);
+        }
+    }
+    
+    updatePauseDisplay() {
+        if (!this.isPaused || !this.pauseStartTime) return;
+        
+        const elapsed = Date.now() - this.pauseStartTime;
+        const totalPauseTime = this.pauseDuration * 60 * 1000; // Convert to milliseconds
+        const remaining = Math.max(0, totalPauseTime - elapsed);
+        
+        if (remaining === 0) {
+            this.stopPause();
+            return;
+        }
+        
+        const minutes = Math.floor(remaining / 60000);
+        const seconds = Math.floor((remaining % 60000) / 1000);
+        
+        const timeString = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        document.getElementById('pauseDisplay').textContent = `Pause: ${timeString}`;
+    }
+    
+    updatePauseButtonIcon() {
+        const pauseBtn = document.querySelector('.pause-btn');
+        if (pauseBtn) {
+            const icon = pauseBtn.querySelector('[data-lucide]');
+            if (icon) {
+                if (this.isPaused) {
+                    icon.setAttribute('data-lucide', 'play');
+                    pauseBtn.setAttribute('title', 'Stop pause');
+                } else {
+                    icon.setAttribute('data-lucide', 'pause');
+                    pauseBtn.setAttribute('title', 'Start pause');
+                }
+                this.initializeLucideIcons();
             }
         }
     }
@@ -706,7 +1062,7 @@ class TaskAgent {
                     yearly: task.recurrence_interval === 1 ? 'Årligt' : `Hvert ${task.recurrence_interval}. år`
                 };
                 const recurrenceText = typeLabels[task.recurrence_type] || 'Gentagende';
-                recurringInfo = `<div class="task-recurring">🔄 ${recurrenceText}</div>`;
+                recurringInfo = `<div class="task-recurring"><i data-lucide="repeat"></i> ${recurrenceText}</div>`;
             }
             
             li.innerHTML = `
@@ -721,16 +1077,20 @@ class TaskAgent {
                 </div>
                 <div class="task-actions">
                     ${!isCompleted ? (isActive ? 
-                        `<button class="task-btn stop" onclick="taskAgent.stopTimer()">■</button>` :
-                        `<button class="task-btn play" onclick="taskAgent.startTimer(${task.id})">▶</button>`
+                        `<button class="task-btn stop" onclick="taskAgent.stopTimer()"><i data-lucide="square"></i></button>` :
+                        `<button class="task-btn play" onclick="taskAgent.startTimer(${task.id})"><i data-lucide="play"></i></button>`
                     ) : ''}
-                    <button class="edit-btn" data-task-id="${task.id}">✎</button>
-                    <button class="delete-btn" data-task-id="${task.id}">×</button>
+                    <button class="move-btn" data-task-id="${task.id}"><i data-lucide="calendar"></i></button>
+                    <button class="edit-btn" data-task-id="${task.id}"><i data-lucide="edit-3"></i></button>
+                    <button class="delete-btn" data-task-id="${task.id}"><i data-lucide="x"></i></button>
                 </div>
             `;
             
             taskList.appendChild(li);
         });
+        
+        // Initialize Lucide icons after DOM update
+        this.initializeLucideIcons();
     }
     
     formatTime(seconds) {
@@ -746,14 +1106,112 @@ class TaskAgent {
         }
     }
     
+    initializeLucideIcons() {
+        // Initialize Lucide icons after DOM updates
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+    
     showAddTaskForm() {
         document.getElementById('addTaskForm').classList.add('show');
         document.getElementById('taskTitle').focus();
+        this.initializeLucideIcons();
     }
     
     hideAddTaskForm() {
         document.getElementById('addTaskForm').classList.remove('show');
         this.resetTaskForm();
+    }
+    
+    showMoveTaskModal(taskId) {
+        this.selectedTaskForMove = taskId;
+        const task = this.tasks.find(t => t.id === taskId);
+        if (!task) return;
+        
+        // Set task title in preview
+        document.getElementById('moveTaskTitle').textContent = task.title;
+        
+        // Set current date as default
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('moveTaskDate').value = today;
+        
+        // Show modal
+        document.getElementById('moveTaskModal').classList.add('show');
+        document.getElementById('moveTaskDate').focus();
+        this.initializeLucideIcons();
+    }
+    
+    hideMoveTaskModal() {
+        document.getElementById('moveTaskModal').classList.remove('show');
+        this.selectedTaskForMove = null;
+    }
+    
+    async confirmMoveTask() {
+        if (!this.selectedTaskForMove) return;
+        
+        const newDate = document.getElementById('moveTaskDate').value;
+        if (!newDate) {
+            alert('Vælg venligst en ny dato');
+            return;
+        }
+        
+        try {
+            const timestamp = Date.now();
+            const response = await fetch(`/tasks/${this.selectedTaskForMove}/move?t=${timestamp}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache'
+                },
+                body: JSON.stringify({ newDate })
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                console.log('Task moved successfully:', result);
+                
+                // Reload tasks to reflect changes
+                await this.loadTasks();
+                
+                this.hideMoveTaskModal();
+                
+                // Show success message
+                this.showSuccessMessage(`Opgave flyttet til ${new Date(newDate).toLocaleDateString('da-DK')}`);
+            } else {
+                const error = await response.json();
+                alert(`Fejl: ${error.error}`);
+            }
+        } catch (error) {
+            console.error('Error moving task:', error);
+            alert('Der opstod en fejl ved flytning af opgaven');
+        }
+    }
+    
+    showSuccessMessage(message) {
+        const messageEl = document.createElement('div');
+        messageEl.className = 'success-message';
+        messageEl.textContent = message;
+        messageEl.style.cssText = `
+            position: fixed;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #48bb78;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 1001;
+            animation: slideDown 0.3s ease;
+        `;
+        
+        document.body.appendChild(messageEl);
+        
+        setTimeout(() => {
+            messageEl.remove();
+        }, 3000);
     }
     
     // CRUD Operations for Tasks
@@ -962,6 +1420,11 @@ class TaskAgent {
         this.renderClientsList();
     }
     
+    openReportPage(reportType) {
+        // Åbn rapporter i nyt vindue/tab
+        window.open('/reports', '_blank');
+    }
+    
     renderProjects() {
         const taskList = document.getElementById('taskList');
         taskList.innerHTML = `
@@ -987,8 +1450,34 @@ class TaskAgent {
     
     renderReports() {
         const taskList = document.getElementById('taskList');
-        taskList.innerHTML = '<h3 style="margin-bottom: 20px; color: #2d3748;">Rapporter & Analyser</h3>';
-        // Reports UI would go here
+        taskList.innerHTML = `
+            <div class="management-header">
+                <h3 style="margin-bottom: 20px; color: #2d3748;">Rapporter & Analyser</h3>
+                <p style="color: #718096; margin-bottom: 20px;">Klik på en rapport for at se detaljeret visning</p>
+            </div>
+            <div class="reports-grid">
+                <div class="report-card" onclick="taskAgent.openReportPage('time')">
+                    <div class="report-icon">⏱️</div>
+                    <h4>Tidsrapport</h4>
+                    <p>Se detaljeret tidsforbrug</p>
+                </div>
+                <div class="report-card" onclick="taskAgent.openReportPage('projects')">
+                    <div class="report-icon">📁</div>
+                    <h4>Projekt Analyse</h4>
+                    <p>Projektstatistikker og forbrug</p>
+                </div>
+                <div class="report-card" onclick="taskAgent.openReportPage('clients')">
+                    <div class="report-icon">🏢</div>
+                    <h4>Kunde Analyse</h4>
+                    <p>Kundestatistikker og forbrug</p>
+                </div>
+                <div class="report-card" onclick="taskAgent.openReportPage('productivity')">
+                    <div class="report-icon">📈</div>
+                    <h4>Produktivitet</h4>
+                    <p>Daglige tendenser og mønstre</p>
+                </div>
+            </div>
+        `;
     }
     
     renderClientsList() {

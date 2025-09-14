@@ -3,8 +3,105 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TaskAgent</title>
+    <title>TaskAgent - Opgavestyring</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="Professionel opgave- og tidstyring med recurring tasks og rapporter">
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="TaskAgent">
+    <meta name="msapplication-TileColor" content="#667eea">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    
+    <!-- iOS Icons -->
+    <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-192x192.png">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/icon-16x16.png">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    
     <style>
+        /* Lucide Icons Base Styling */
+        [data-lucide] {
+            width: 20px;
+            height: 20px;
+            stroke-width: 2;
+            pointer-events: none; /* Prevent icons from blocking button clicks */
+        }
+        
+        .pause-btn [data-lucide] {
+            width: 16px;
+            height: 16px;
+        }
+        
+        .install-btn [data-lucide] {
+            width: 16px;
+            height: 16px;
+        }
+        
+        .date-nav [data-lucide] {
+            width: 18px;
+            height: 18px;
+        }
+        
+        .add-btn [data-lucide] {
+            width: 16px;
+            height: 16px;
+            margin-right: 6px;
+        }
+        
+        .menu-icon [data-lucide] {
+            width: 22px;
+            height: 22px;
+        }
+        
+        /* Task List Icons */
+        .task-recurring [data-lucide] {
+            width: 14px;
+            height: 14px;
+            margin-right: 4px;
+            vertical-align: text-top;
+        }
+        
+        .task-btn [data-lucide] {
+            width: 14px;
+            height: 14px;
+        }
+        
+        .move-btn [data-lucide],
+        .edit-btn [data-lucide],
+        .delete-btn [data-lucide] {
+            width: 16px;
+            height: 16px;
+        }
+        
+        /* Form Button Icons */
+        .btn [data-lucide] {
+            width: 16px;
+            height: 16px;
+            margin-right: 6px;
+            vertical-align: text-top;
+        }
+        
+        /* Task Title Preview in Move Modal */
+        .task-title-preview {
+            display: block;
+            padding: 12px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 2px solid #e2e8f0;
+            font-weight: 500;
+            color: #2d3748;
+            margin-bottom: 0;
+        }
+        
         * {
             margin: 0;
             padding: 0;
@@ -148,9 +245,24 @@
             margin-bottom: 24px;
         }
         
-        .search-input {
+        .search-input-wrapper {
+            position: relative;
             flex: 1;
-            padding: 12px 16px;
+        }
+        
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #64748b;
+            width: 18px;
+            height: 18px;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 12px 16px 12px 44px;
             border: none;
             background: #f5f6fa;
             border-radius: 12px;
@@ -330,6 +442,131 @@
         
         .timer-display.active {
             display: block;
+        }
+        
+        .pause-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+        
+        .pause-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.1);
+        }
+        
+        .install-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            margin-right: 12px;
+        }
+        
+        .install-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.1);
+        }
+        
+        .pause-display {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            background: rgba(255, 165, 0, 0.9);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-family: 'SF Mono', monospace;
+            font-size: 14px;
+            font-weight: 600;
+            display: none;
+            cursor: pointer;
+            transition: all 0.3s;
+            animation: pausePulse 2s infinite;
+        }
+        
+        .pause-display:hover {
+            background: rgba(255, 165, 0, 1);
+        }
+        
+        .pause-display.active {
+            display: block;
+        }
+        
+        @keyframes pausePulse {
+            0% { opacity: 0.8; }
+            50% { opacity: 1; }
+            100% { opacity: 0.8; }
+        }
+        
+        @keyframes slideDown {
+            0% { 
+                opacity: 0; 
+                transform: translateX(-50%) translateY(-20px); 
+            }
+            100% { 
+                opacity: 1; 
+                transform: translateX(-50%) translateY(0); 
+            }
+        }
+        
+        .reports-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-top: 20px;
+        }
+        
+        .report-card {
+            background: #f8f9fa;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .report-card:hover {
+            background: #e3f2fd;
+            border-color: #2d5aa0;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(45, 90, 160, 0.15);
+        }
+        
+        .report-icon {
+            font-size: 32px;
+            margin-bottom: 12px;
+        }
+        
+        .report-card h4 {
+            color: #2d3748;
+            margin: 0 0 8px 0;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        
+        .report-card p {
+            color: #718096;
+            margin: 0;
+            font-size: 14px;
         }
         
         .add-task-form {
@@ -654,13 +891,15 @@
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>OpgaveStyring</h1>
-            <span></span>
-        </div>
-        
-        <div class="date-bar">
-            <button class="date-nav prev" id="prevWeek">‹</button>
+    <div class="header">
+        <h1>OpgaveStyring</h1>
+        <button class="pause-btn" onclick="taskAgent.pauseToggle()" title="Start pause">
+            <i data-lucide="pause"></i>
+        </button>
+    </div>        <div class="date-bar">
+            <button class="date-nav prev" id="prevWeek">
+                <i data-lucide="chevron-left"></i>
+            </button>
             <div class="date-item">
                 <div class="date-day">SAT</div>
                 <div class="date-num">28</div>
@@ -689,14 +928,21 @@
                 <div class="date-day">FRI</div>
                 <div class="date-num">03</div>
             </div>
-            <button class="date-nav next" id="nextWeek">›</button>
+            <button class="date-nav next" id="nextWeek">
+                <i data-lucide="chevron-right"></i>
+            </button>
         </div>
         
         <div class="main-card">
         <div class="search-container">
             <div class="search-bar">
-                <input type="text" class="search-input" placeholder="Søg" id="searchInput">
-                <button class="add-btn" id="addBtn">+ OPGAVE</button>
+                <div class="search-input-wrapper">
+                    <i data-lucide="search" class="search-icon"></i>
+                    <input type="text" class="search-input" placeholder="Søg" id="searchInput">
+                </div>
+                <button class="add-btn" id="addBtn">
+                    <i data-lucide="plus"></i> OPGAVE
+                </button>
             </div>
             
             <div class="filter-tabs">
@@ -712,24 +958,34 @@
     
     <div class="bottom-menu">
         <button class="menu-item active" data-view="tasks">
-            <div class="menu-icon">□</div>
+            <div class="menu-icon">
+                <i data-lucide="check-square"></i>
+            </div>
             <div class="menu-label">Opgaver</div>
         </button>
         <button class="menu-item" data-view="projects">
-            <div class="menu-icon">▢</div>
+            <div class="menu-icon">
+                <i data-lucide="folder"></i>
+            </div>
             <div class="menu-label">Projekter</div>
         </button>
         <button class="menu-item" data-view="clients">
-            <div class="menu-icon">◯</div>
+            <div class="menu-icon">
+                <i data-lucide="users"></i>
+            </div>
             <div class="menu-label">Kunder</div>
         </button>
         <button class="menu-item" data-view="reports">
-            <div class="menu-icon">▨</div>
+            <div class="menu-icon">
+                <i data-lucide="bar-chart-3"></i>
+            </div>
             <div class="menu-label">Rapporter</div>
         </button>
     </div>
     
     <div class="timer-display" id="timerDisplay">00:00:00</div>
+    
+    <div class="pause-display" id="pauseDisplay">Pause: 05:00</div>
     
     <div class="add-task-form" id="addTaskForm">
         <div class="form-content">
@@ -762,8 +1018,34 @@
                 </div>
             </div>
             <div class="form-buttons">
-                <button class="btn btn-secondary" id="cancelBtn">Annuller</button>
-                <button class="btn btn-primary" id="saveBtn">Tilføj opgave</button>
+                <button class="btn btn-secondary" id="cancelBtn">
+                    <i data-lucide="x"></i> Annuller
+                </button>
+                <button class="btn btn-primary" id="saveBtn">
+                    <i data-lucide="check"></i> Tilføj opgave
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Move Task Modal -->
+    <div id="moveTaskModal" class="modal">
+        <div class="modal-content">
+            <h2>Flyt opgave til ny dato</h2>
+            <div class="form-group">
+                <label for="moveTaskDate">Vælg ny dato:</label>
+                <input type="date" class="form-input" id="moveTaskDate" required>
+            </div>
+            <div class="form-group">
+                <label class="task-title-preview" id="moveTaskTitle">Opgave titel</label>
+            </div>
+            <div class="form-buttons">
+                <button class="btn btn-secondary" id="cancelMoveBtn">
+                    <i data-lucide="x"></i> Annuller
+                </button>
+                <button class="btn btn-primary" id="confirmMoveBtn">
+                    <i data-lucide="calendar"></i> Flyt opgave
+                </button>
             </div>
         </div>
     </div>

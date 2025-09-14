@@ -41,7 +41,12 @@ fastify.get('/reports', async (request, reply) => {
 
 // ---- CLIENT ROUTES ----
 // Hent alle kunder
-fastify.get('/clients', async () => {
+fastify.get('/clients', async (request, reply) => {
+  // Prevent caching
+  reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+  reply.header('Pragma', 'no-cache');
+  reply.header('Expires', '0');
+  
   const [rows] = await pool.query('SELECT * FROM clients ORDER BY name');
   return rows;
 });
@@ -119,7 +124,12 @@ fastify.delete('/clients/:id', async (request, reply) => {
 
 // ---- PROJECT ROUTES ----
 // Hent alle projekter
-fastify.get('/projects', async () => {
+fastify.get('/projects', async (request, reply) => {
+  // Prevent caching
+  reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+  reply.header('Pragma', 'no-cache');
+  reply.header('Expires', '0');
+  
   const [rows] = await pool.query(`
     SELECT p.*, c.name as client_name 
     FROM projects p 
@@ -205,7 +215,12 @@ fastify.delete('/projects/:id', async (request, reply) => {
 
 // ---- TASK ROUTES ----
 // Hent alle opgaver med projekt og kunde info
-fastify.get('/tasks', async () => {
+fastify.get('/tasks', async (request, reply) => {
+  // Prevent caching
+  reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+  reply.header('Pragma', 'no-cache');
+  reply.header('Expires', '0');
+  
   const [rows] = await pool.query(`
     SELECT t.*, p.name as project_name, c.name as client_name
     FROM tasks t
@@ -219,6 +234,11 @@ fastify.get('/tasks', async () => {
 // Opret ny opgave
 fastify.post('/tasks', async (request, reply) => {
   try {
+    // Prevent caching
+    reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+    reply.header('Pragma', 'no-cache');
+    reply.header('Expires', '0');
+    
     const { title, project_id, is_recurring, recurrence_type, recurrence_interval, next_occurrence } = request.body;
     if (!title) {
       reply.code(400);
@@ -277,6 +297,52 @@ fastify.put('/tasks/:id', async (request, reply) => {
   } catch (error) {
     reply.code(500);
     return { error: 'Kunne ikke opdatere opgave' };
+  }
+});
+
+// Flyt opgave til ny dato
+fastify.put('/tasks/:id/move', async (request, reply) => {
+  try {
+    // Prevent caching
+    reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+    reply.header('Pragma', 'no-cache');
+    reply.header('Expires', '0');
+    
+    const { id } = request.params;
+    const { newDate } = request.body;
+    
+    if (!newDate) {
+      reply.code(400);
+      return { error: 'Ny dato er påkrævet' };
+    }
+    
+    // Validate date format
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(newDate)) {
+      reply.code(400);
+      return { error: 'Ugyldig datoformat. Brug YYYY-MM-DD' };
+    }
+    
+    const [result] = await pool.query(
+      'UPDATE tasks SET start_date = ? WHERE id = ?',
+      [newDate, id]
+    );
+    
+    if (result.affectedRows === 0) {
+      reply.code(404);
+      return { error: 'Opgave ikke fundet' };
+    }
+    
+    return { 
+      success: true, 
+      id: parseInt(id), 
+      newDate,
+      message: 'Opgave flyttet til ny dato'
+    };
+  } catch (error) {
+    console.error('Error moving task:', error);
+    reply.code(500);
+    return { error: 'Kunne ikke flytte opgave' };
   }
 });
 
@@ -556,6 +622,11 @@ fastify.get('/reports/productivity', async (request, reply) => {
 // Get all recurring completions
 fastify.get('/recurring-completions', async (request, reply) => {
     try {
+        // Prevent caching
+        reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+        reply.header('Pragma', 'no-cache');
+        reply.header('Expires', '0');
+        
         const [rows] = await pool.execute(
             'SELECT * FROM recurring_task_completions ORDER BY completion_date DESC'
         );
