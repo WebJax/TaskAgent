@@ -4,11 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TaskAgent - Opgavestyring</title>
-    
+
+    <!-- No Store -->
+    <meta http-equiv="Cache-Control" content="no-store">
+
     <!-- PWA Meta Tags -->
     <meta name="description" content="Professionel opgave- og tidstyring med recurring tasks og rapporter">
     <meta name="theme-color" content="#667eea">
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="TaskAgent">
     <meta name="msapplication-TileColor" content="#667eea">
@@ -270,6 +273,7 @@
         }
         
         .add-btn {
+            display: flex;
             background: #4a5568;
             color: white;
             border: none;
@@ -278,6 +282,11 @@
             font-weight: 600;
             cursor: pointer;
             transition: background 0.3s;
+        }
+
+        .add-btn span {
+            align-self: end;
+            margin-bottom: 1px;
         }
         
         .add-btn:hover {
@@ -409,7 +418,7 @@
         }
         
         .task-btn {
-            padding: 6px 12px;
+            padding: 8px 12px 6px;
             border: none;
             border-radius: 6px;
             font-size: 12px;
@@ -585,16 +594,14 @@
         .add-task-form.show {
             display: flex;
         }
-        
+
         .form-content {
             background: white;
             border-radius: 20px;
             padding: 24px;
             width: 90%;
             max-width: 400px;
-        }
-        
-        .form-title {
+        }        .form-title {
             font-size: 20px;
             font-weight: 600;
             margin-bottom: 20px;
@@ -638,6 +645,11 @@
         .btn-secondary {
             background: #e2e8f0;
             color: #4a5568;
+        }
+
+        .btn-danger {
+            background: #f56565;
+            color: white;
         }
         
         .bottom-menu {
@@ -720,8 +732,8 @@
             color: white;
         }
         
-        .edit-btn, .delete-btn {
-            padding: 4px 8px;
+        .edit-btn, .delete-btn, .move-btn {
+            padding: 5px 8px 4px;
             border: none;
             border-radius: 4px;
             font-size: 12px;
@@ -941,7 +953,7 @@
                     <input type="text" class="search-input" placeholder="Søg" id="searchInput">
                 </div>
                 <button class="add-btn" id="addBtn">
-                    <i data-lucide="plus"></i> OPGAVE
+                    <i data-lucide="plus"></i><span> OPGAVE</span>
                 </button>
             </div>
             
@@ -989,66 +1001,81 @@
     
     <div class="add-task-form" id="addTaskForm">
         <div class="form-content">
-            <h2 class="form-title">Tilføj ny opgave</h2>
-            <input type="text" class="form-input" placeholder="Opgave titel..." id="taskTitle">
-            <select class="form-input" id="clientSelect">
-                <option value="">Vælg kunde (valgfri)</option>
-            </select>
-            <select class="form-input" id="projectSelect">
-                <option value="">Vælg projekt (valgfri)</option>
-            </select>
+            <h2 class="form-title" id="formTitle">Tilføj ny opgave</h2>
             
-            <div class="recurring-section">
-                <label class="checkbox-label">
-                    <input type="checkbox" id="isRecurring"> Gentagende opgave
-                </label>
-                <div class="recurring-options" id="recurringOptions" style="display: none;">
-                    <div style="display: flex; gap: 12px; margin-top: 12px;">
-                        <select class="form-input" id="recurrenceType" style="flex: 2;">
-                            <option value="daily">Dagligt</option>
-                            <option value="weekly">Ugentligt</option>
-                            <option value="monthly">Månedligt</option>
-                            <option value="yearly">Årligt</option>
-                        </select>
-                        <input type="number" class="form-input" id="recurrenceInterval" placeholder="Interval" min="1" value="1" style="flex: 1;">
-                    </div>
-                    <div style="font-size: 12px; color: #718096; margin-top: 6px;" id="recurrenceDescription">
-                        Gentages hver dag
+            <!-- Standard task fields -->
+            <div id="taskFields">
+                <input type="text" class="form-input" placeholder="Opgave titel..." id="taskTitle">
+                <select class="form-input" id="clientSelect">
+                    <option value="">Vælg kunde (valgfri)</option>
+                </select>
+                <select class="form-input" id="projectSelect">
+                    <option value="">Vælg projekt (valgfri)</option>
+                </select>
+                
+                <div class="recurring-section">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="isRecurring"> Gentagende opgave
+                    </label>
+                    <div class="recurring-options" id="recurringOptions" style="display: none;">
+                        <div style="display: flex; gap: 12px; margin-top: 12px;">
+                            <select class="form-input" id="recurrenceType" style="flex: 2;">
+                                <option value="daily">Dagligt</option>
+                                <option value="weekly">Ugentligt</option>
+                                <option value="monthly">Månedligt</option>
+                                <option value="yearly">Årligt</option>
+                            </select>
+                            <input type="number" class="form-input" id="recurrenceInterval" placeholder="Interval" min="1" value="1" style="flex: 1;">
+                        </div>
+                        <div style="font-size: 12px; color: #718096; margin-top: 6px;" id="recurrenceDescription">
+                            Gentages hver dag
+                        </div>
                     </div>
                 </div>
             </div>
+
+            <!-- Move task fields -->
+            <div id="moveFields" style="display: none;">
+                <div class="form-group">
+                    <label for="moveTaskDate">Vælg ny dato:</label>
+                    <input type="date" class="form-input" id="moveTaskDate" required>
+                </div>
+                <div class="task-title-preview" id="moveTaskTitle">Opgave titel</div>
+                
+                <div class="form-group" style="margin-top: 16px;">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="copyTask"> Kopier opgave (behold original)
+                    </label>
+                    <div style="font-size: 12px; color: #718096; margin-top: 4px;">
+                        Hvis markeret, kopieres opgaven til den nye dato i stedet for at flytte den
+                    </div>
+                </div>
+            </div>
+
+            <!-- Delete confirmation -->
+            <div id="deleteConfirmation" style="display: none;">
+                <div style="background: #fed7d7; padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+                    <p style="margin: 0; color: #c53030;">Er du sikker på, at du vil slette denne opgave?</p>
+                    <div class="task-title-preview" id="deleteTaskTitle" style="margin-top: 8px;">Opgave titel</div>
+                </div>
+            </div>
+            
             <div class="form-buttons">
                 <button class="btn btn-secondary" id="cancelBtn">
                     <i data-lucide="x"></i> Annuller
                 </button>
                 <button class="btn btn-primary" id="saveBtn">
-                    <i data-lucide="check"></i> Tilføj opgave
+                    <i data-lucide="check"></i> <span id="saveBtnText">Tilføj opgave</span>
+                </button>
+                <button class="btn btn-danger" id="deleteBtn" style="display: none;">
+                    <i data-lucide="trash-2"></i> Slet opgave
                 </button>
             </div>
         </div>
     </div>
 
     <!-- Move Task Modal -->
-    <div id="moveTaskModal" class="modal">
-        <div class="modal-content">
-            <h2>Flyt opgave til ny dato</h2>
-            <div class="form-group">
-                <label for="moveTaskDate">Vælg ny dato:</label>
-                <input type="date" class="form-input" id="moveTaskDate" required>
-            </div>
-            <div class="form-group">
-                <label class="task-title-preview" id="moveTaskTitle">Opgave titel</label>
-            </div>
-            <div class="form-buttons">
-                <button class="btn btn-secondary" id="cancelMoveBtn">
-                    <i data-lucide="x"></i> Annuller
-                </button>
-                <button class="btn btn-primary" id="confirmMoveBtn">
-                    <i data-lucide="calendar"></i> Flyt opgave
-                </button>
-            </div>
-        </div>
-    </div>
+    
     
     <script src="app.js"></script>
 </body>

@@ -14,14 +14,19 @@ class TaskAgent {
         this.timerStartTime = null;
         this.activeTaskId = null;
         
-        // Move task functionality
-        this.selectedTaskForMove = null;
+        // Form functionality
+        this.formMode = 'add'; // 'add', 'edit', 'delete', 'move'
+        this.currentTaskId = null;
         
         // Pause functionality
         this.isPaused = false;
         this.pauseInterval = null;
         this.pauseStartTime = null;
         this.pauseDuration = 0; // in minutes
+        
+        // Timer timeout functionality
+        this.timerTimeoutCheck = null;
+        this.timerTimeoutWarning = null;
         
         // PWA functionality
         this.deferredPrompt = null;
@@ -80,6 +85,8 @@ class TaskAgent {
         // Request notification permission
         this.requestNotificationPermission();
     }
+
+
     
     showInstallButton() {
         // Add install button to header if not already installed
@@ -204,6 +211,11 @@ class TaskAgent {
         document.getElementById('saveBtn').addEventListener('click', () => {
             this.saveTask();
         });
+
+        // Delete task
+        document.getElementById('deleteBtn').addEventListener('click', () => {
+            this.deleteTask();
+        });
         
         // Recurring task checkbox
         document.getElementById('isRecurring').addEventListener('change', (e) => {
@@ -217,6 +229,11 @@ class TaskAgent {
         
         document.getElementById('recurrenceInterval').addEventListener('input', () => {
             this.updateRecurrenceDescription();
+        });
+        
+        // Copy task checkbox
+        document.getElementById('copyTask').addEventListener('change', (e) => {
+            this.updateMoveFormTitle(e.target.checked);
         });
         
         // Search input
@@ -303,7 +320,7 @@ class TaskAgent {
                 
                 if (taskId) {
                     console.log('Editing task:', taskId);
-                    this.editTask(taskId);
+                    this.showTaskForm('edit', taskId);
                 } else if (clientId) {
                     const clientName = e.target.getAttribute('data-client-name');
                     console.log('Editing client:', clientId, clientName);
@@ -326,7 +343,7 @@ class TaskAgent {
                 
                 if (taskId) {
                     console.log('Deleting task:', taskId);
-                    this.deleteTask(taskId);
+                    this.showTaskForm('delete', taskId);
                 } else if (clientId) {
                     console.log('Deleting client:', clientId);
                     this.deleteClient(clientId);
@@ -342,26 +359,30 @@ class TaskAgent {
                 
                 if (taskId) {
                     console.log('Moving task:', taskId);
-                    this.showMoveTaskModal(taskId);
+                    this.showTaskForm('move', taskId);
                 }
             }
         });
-        
-        // Move task modal event listeners
-        document.getElementById('cancelMoveBtn').addEventListener('click', () => {
-            this.hideMoveTaskModal();
+
+        // Cleanup when page unloads
+        window.addEventListener('beforeunload', () => {
+            this.cleanup();
         });
+
+    }
+
+    cleanup() {        
+        // Clear timer timeout
+        this.clearTimerTimeout();
         
-        document.getElementById('confirmMoveBtn').addEventListener('click', () => {
-            this.confirmMoveTask();
-        });
+        // Clear other intervals
+        if (this.timerInterval) {
+            clearInterval(this.timerInterval);
+        }
         
-        // Close move modal when clicking outside
-        document.getElementById('moveTaskModal').addEventListener('click', (e) => {
-            if (e.target.id === 'moveTaskModal') {
-                this.hideMoveTaskModal();
-            }
-        });
+        if (this.pauseInterval) {
+            clearInterval(this.pauseInterval);
+        }
     }
     
     async loadData() {
@@ -450,6 +471,16 @@ class TaskAgent {
     }
     
     async saveTask() {
+        if (this.formMode === 'delete') {
+            this.hideAddTaskForm();
+            return;
+        }
+        
+        if (this.formMode === 'move') {
+            await this.confirmMoveTask();
+            return;
+        }
+        
         const title = document.getElementById('taskTitle').value.trim();
         if (!title) return;
         
@@ -490,24 +521,40 @@ class TaskAgent {
         }
         
         try {
-            console.log('Creating new task:', taskData);
-            
             const timestamp = Date.now();
-            const response = await fetch(`/tasks?t=${timestamp}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Cache-Control': 'no-cache, no-store, must-revalidate',
-                    'Pragma': 'no-cache'
-                },
-                body: JSON.stringify(taskData)
-            });
+            let response, logMessage;
             
-            console.log('Create task response status:', response.status);
+            if (this.formMode === 'edit' && this.currentTaskId) {
+                console.log('Updating task:', this.currentTaskId, taskData);
+                logMessage = 'Updated task';
+                response = await fetch(`/tasks/${this.currentTaskId}?t=${timestamp}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache'
+                    },
+                    body: JSON.stringify(taskData)
+                });
+            } else {
+                console.log('Creating new task:', taskData);
+                logMessage = 'New task created';
+                response = await fetch(`/tasks?t=${timestamp}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache'
+                    },
+                    body: JSON.stringify(taskData)
+                });
+            }
+            
+            console.log('Task operation response status:', response.status);
             
             if (response.ok) {
-                const newTask = await response.json();
-                console.log('New task created:', newTask);
+                const task = await response.json();
+                console.log(logMessage + ':', task);
                 
                 // Reload all tasks to ensure consistency
                 console.log('Reloading tasks after creation...');
@@ -518,12 +565,39 @@ class TaskAgent {
                 this.resetTaskForm();
                 
                 // Show success message
-                console.log('Task list updated after creation');
+                console.log('Task list updated');
             } else {
-                console.error('Failed to create task:', response.status, response.statusText);
+                console.error('Failed to save task:', response.status, response.statusText);
             }
         } catch (error) {
             console.error('Error saving task:', error);
+        }
+    }
+
+    async deleteTask() {
+        if (!this.currentTaskId) return;
+        
+        try {
+            const timestamp = Date.now();
+            const response = await fetch(`/tasks/${this.currentTaskId}?t=${timestamp}`, {
+                method: 'DELETE',
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache'
+                }
+            });
+            
+            if (response.ok) {
+                console.log('Task deleted:', this.currentTaskId);
+                await this.loadTasks();
+                this.hideAddTaskForm();
+            } else {
+                console.error('Failed to delete task:', response.status);
+                alert('Kunne ikke slette opgaven');
+            }
+        } catch (error) {
+            console.error('Error deleting task:', error);
+            alert('Fejl ved sletning af opgave');
         }
     }
     
@@ -609,9 +683,23 @@ class TaskAgent {
         }
         
         try {
-            const response = await fetch(`/tasks/${taskId}/start`, {
-                method: 'POST'
-            });
+            const task = this.tasks.find(t => t.id === taskId);
+            let response;
+            
+            if (task && task.is_recurring) {
+                // For recurring tasks, use the recurring timer endpoint
+                const completionDate = this.selectedDate.toISOString().split('T')[0];
+                response = await fetch(`/tasks/${taskId}/start-recurring`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ completion_date: completionDate })
+                });
+            } else {
+                // For regular tasks, use the regular timer endpoint
+                response = await fetch(`/tasks/${taskId}/start`, {
+                    method: 'POST'
+                });
+            }
             
             if (response.ok) {
                 this.activeTaskId = taskId;
@@ -621,6 +709,9 @@ class TaskAgent {
                 this.timerInterval = setInterval(() => {
                     this.updateTimerDisplay();
                 }, 1000);
+                
+                // Set up 1-hour timeout check
+                this.setupTimerTimeout();
                 
                 document.getElementById('timerDisplay').classList.add('active');
                 this.renderTasks();
@@ -634,9 +725,23 @@ class TaskAgent {
         if (!this.activeTaskId) return;
         
         try {
-            const response = await fetch(`/tasks/${this.activeTaskId}/stop`, {
-                method: 'POST'
-            });
+            const task = this.tasks.find(t => t.id === this.activeTaskId);
+            let response;
+            
+            if (task && task.is_recurring) {
+                // For recurring tasks, use the recurring timer endpoint
+                const completionDate = this.selectedDate.toISOString().split('T')[0];
+                response = await fetch(`/tasks/${this.activeTaskId}/stop-recurring`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ completion_date: completionDate })
+                });
+            } else {
+                // For regular tasks, use the regular timer endpoint
+                response = await fetch(`/tasks/${this.activeTaskId}/stop`, {
+                    method: 'POST'
+                });
+            }
             
             if (response.ok) {
                 this.activeTaskId = null;
@@ -647,12 +752,195 @@ class TaskAgent {
                     this.timerInterval = null;
                 }
                 
+                // Clear timeout warnings
+                this.clearTimerTimeout();
+                
                 document.getElementById('timerDisplay').classList.remove('active');
                 await this.loadTasks(); // Reload to get updated times
             }
         } catch (error) {
             console.error('Error stopping timer:', error);
         }
+    }
+
+    setupTimerTimeout() {
+        // Clear any existing timeout
+        this.clearTimerTimeout();
+        
+        // Set timeout for 1 hour (3600000 ms)
+        this.timerTimeoutCheck = setTimeout(() => {
+            this.showTimerTimeoutWarning();
+        }, 3600000); // 1 hour
+        
+        console.log('Timer timeout set for 1 hour');
+    }
+    
+    clearTimerTimeout() {
+        if (this.timerTimeoutCheck) {
+            clearTimeout(this.timerTimeoutCheck);
+            this.timerTimeoutCheck = null;
+        }
+        
+        if (this.timerTimeoutWarning) {
+            clearTimeout(this.timerTimeoutWarning);
+            this.timerTimeoutWarning = null;
+        }
+    }
+    
+    showTimerTimeoutWarning() {
+        if (!this.activeTaskId) return;
+        
+        const task = this.tasks.find(t => t.id === this.activeTaskId);
+        const taskName = task ? task.title : 'Opgave';
+        
+        // Show notification if supported
+        if ('Notification' in window && Notification.permission === 'granted') {
+            const notification = new Notification('Timer kørt i 1 time', {
+                body: `${taskName} - Skal timeren fortsætte?`,
+                icon: '/icons/icon-192x192.png',
+                requireInteraction: true,
+                actions: [
+                    { action: 'continue', title: 'Fortsæt timer' },
+                    { action: 'stop', title: 'Stop timer' }
+                ]
+            });
+            
+            notification.onclick = () => {
+                window.focus();
+                this.handleTimerTimeoutResponse('continue');
+                notification.close();
+            };
+        }
+        
+        // Show in-app modal as backup
+        this.showTimerTimeoutModal(taskName);
+        
+        // Auto-stop after 1 minute if no response
+        this.timerTimeoutWarning = setTimeout(() => {
+            console.log('No response to timer timeout - auto-stopping');
+            this.stopTimer();
+            this.showAutoStopNotification();
+        }, 60000); // 1 minute
+    }
+    
+    showTimerTimeoutModal(taskName) {
+        // Create modal overlay
+        const modal = document.createElement('div');
+        modal.id = 'timerTimeoutModal';
+        modal.innerHTML = `
+            <div style="
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.8);
+                z-index: 2000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            ">
+                <div style="
+                    background: white;
+                    border-radius: 20px;
+                    padding: 24px;
+                    max-width: 400px;
+                    width: 90%;
+                    text-align: center;
+                    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+                ">
+                    <div style="font-size: 24px; margin-bottom: 8px;">⏰</div>
+                    <h2 style="margin: 0 0 16px 0; color: #2d3748;">Timer kørt i 1 time</h2>
+                    <p style="margin: 0 0 24px 0; color: #718096;">
+                        <strong>${taskName}</strong><br>
+                        Skal timeren fortsætte med at køre?<br>
+                        <small>Stopper automatisk om 1 minut hvis ingen reaktion</small>
+                    </p>
+                    <div style="display: flex; gap: 12px; justify-content: center;">
+                        <button onclick="taskAgent.handleTimerTimeoutResponse('stop')" 
+                                style="
+                                    background: #f56565; 
+                                    color: white; 
+                                    border: none; 
+                                    padding: 12px 24px; 
+                                    border-radius: 12px; 
+                                    cursor: pointer;
+                                    font-size: 14px;
+                                ">
+                            Stop timer
+                        </button>
+                        <button onclick="taskAgent.handleTimerTimeoutResponse('continue')" 
+                                style="
+                                    background: #667eea; 
+                                    color: white; 
+                                    border: none; 
+                                    padding: 12px 24px; 
+                                    border-radius: 12px; 
+                                    cursor: pointer;
+                                    font-size: 14px;
+                                ">
+                            Fortsæt timer
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+    }
+    
+    handleTimerTimeoutResponse(action) {
+        // Remove modal
+        const modal = document.getElementById('timerTimeoutModal');
+        if (modal) {
+            modal.remove();
+        }
+        
+        // Clear timeout warning
+        if (this.timerTimeoutWarning) {
+            clearTimeout(this.timerTimeoutWarning);
+            this.timerTimeoutWarning = null;
+        }
+        
+        if (action === 'continue') {
+            console.log('User chose to continue timer - setting new 1-hour timeout');
+            this.setupTimerTimeout(); // Set up another 1-hour timeout
+        } else {
+            console.log('User chose to stop timer');
+            this.stopTimer();
+        }
+    }
+    
+    showAutoStopNotification() {
+        const notification = document.createElement('div');
+        notification.innerHTML = `
+            <div style="
+                position: fixed; 
+                top: 70px; 
+                right: 20px; 
+                background: rgba(245, 101, 101, 0.95); 
+                color: white; 
+                padding: 12px 16px; 
+                border-radius: 12px; 
+                font-size: 14px; 
+                z-index: 1001;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            ">
+                <div>⏰ Timer stoppet automatisk</div>
+                <div style="font-size: 12px; opacity: 0.9; margin-top: 4px;">
+                    Ingen reaktion efter 1 time
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Remove notification after 5 seconds
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 5000);
     }
     
     updateTimerDisplay() {
@@ -1014,7 +1302,21 @@ class TaskAgent {
             li.className = 'task-item';
             li.setAttribute('data-task-id', task.id);
             
-            const totalTime = this.formatTime(task.time_spent || 0);
+            // Calculate correct time spent based on task type
+            let timeSpent = 0;
+            if (task.is_recurring) {
+                // For recurring tasks, get time from the specific completion
+                const selectedDateStr = this.selectedDate.toISOString().split('T')[0];
+                const completion = this.recurringCompletions.find(
+                    c => c.task_id === task.id && c.completion_date === selectedDateStr
+                );
+                timeSpent = completion ? (completion.time_spent || 0) : 0;
+            } else {
+                // For regular tasks, use the task's time_spent
+                timeSpent = task.time_spent || 0;
+            }
+            
+            const totalTime = this.formatTime(timeSpent);
             const isActive = this.activeTaskId === task.id;
             
             // Bestem completion status for opgaven
@@ -1114,8 +1416,60 @@ class TaskAgent {
     }
     
     showAddTaskForm() {
-        document.getElementById('addTaskForm').classList.add('show');
-        document.getElementById('taskTitle').focus();
+        this.showTaskForm('add');
+    }
+
+    showTaskForm(mode, taskId = null) {
+        this.formMode = mode;
+        this.currentTaskId = taskId;
+        
+        // Reset form visibility
+        document.getElementById('taskFields').style.display = 'block';
+        document.getElementById('moveFields').style.display = 'none';
+        document.getElementById('deleteConfirmation').style.display = 'none';
+        document.getElementById('deleteBtn').style.display = 'none';
+        
+        const form = document.getElementById('addTaskForm');
+        const title = document.getElementById('formTitle');
+        const saveBtn = document.getElementById('saveBtnText');
+        
+        switch (mode) {
+            case 'add':
+                title.textContent = 'Tilføj ny opgave';
+                saveBtn.textContent = 'Tilføj opgave';
+                this.resetTaskForm();
+                break;
+                
+            case 'edit':
+                title.textContent = 'Rediger opgave';
+                saveBtn.textContent = 'Gem ændringer';
+                this.loadTaskForEdit(taskId);
+                break;
+                
+            case 'delete':
+                title.textContent = 'Slet opgave';
+                document.getElementById('taskFields').style.display = 'none';
+                document.getElementById('deleteConfirmation').style.display = 'block';
+                document.getElementById('deleteBtn').style.display = 'inline-flex';
+                saveBtn.textContent = 'Annuller';
+                this.loadTaskForDelete(taskId);
+                break;
+                
+            case 'move':
+                title.textContent = 'Flyt opgave til ny dato';
+                document.getElementById('taskFields').style.display = 'none';
+                document.getElementById('moveFields').style.display = 'block';
+                saveBtn.textContent = 'Flyt opgave';
+                this.loadTaskForMove(taskId);
+                break;
+        }
+        
+        form.classList.add('show');
+        if (mode === 'add' || mode === 'edit') {
+            document.getElementById('taskTitle').focus();
+        } else if (mode === 'move') {
+            document.getElementById('moveTaskDate').focus();
+        }
         this.initializeLucideIcons();
     }
     
@@ -1124,31 +1478,10 @@ class TaskAgent {
         this.resetTaskForm();
     }
     
-    showMoveTaskModal(taskId) {
-        this.selectedTaskForMove = taskId;
-        const task = this.tasks.find(t => t.id === taskId);
-        if (!task) return;
-        
-        // Set task title in preview
-        document.getElementById('moveTaskTitle').textContent = task.title;
-        
-        // Set current date as default
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('moveTaskDate').value = today;
-        
-        // Show modal
-        document.getElementById('moveTaskModal').classList.add('show');
-        document.getElementById('moveTaskDate').focus();
-        this.initializeLucideIcons();
-    }
-    
-    hideMoveTaskModal() {
-        document.getElementById('moveTaskModal').classList.remove('show');
-        this.selectedTaskForMove = null;
-    }
+
     
     async confirmMoveTask() {
-        if (!this.selectedTaskForMove) return;
+        if (!this.currentTaskId) return;
         
         const newDate = document.getElementById('moveTaskDate').value;
         if (!newDate) {
@@ -1156,9 +1489,21 @@ class TaskAgent {
             return;
         }
         
+        const copyTask = document.getElementById('copyTask').checked;
+        
+        if (copyTask) {
+            // Copy task instead of moving
+            await this.copyTaskToDate(this.currentTaskId, newDate);
+        } else {
+            // Move task as before
+            await this.moveTaskToDate(this.currentTaskId, newDate);
+        }
+    }
+
+    async moveTaskToDate(taskId, newDate) {
         try {
             const timestamp = Date.now();
-            const response = await fetch(`/tasks/${this.selectedTaskForMove}/move?t=${timestamp}`, {
+            const response = await fetch(`/tasks/${taskId}/move?t=${timestamp}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1175,7 +1520,7 @@ class TaskAgent {
                 // Reload tasks to reflect changes
                 await this.loadTasks();
                 
-                this.hideMoveTaskModal();
+                this.hideAddTaskForm();
                 
                 // Show success message
                 this.showSuccessMessage(`Opgave flyttet til ${new Date(newDate).toLocaleDateString('da-DK')}`);
@@ -1186,6 +1531,53 @@ class TaskAgent {
         } catch (error) {
             console.error('Error moving task:', error);
             alert('Der opstod en fejl ved flytning af opgaven');
+        }
+    }
+
+    async copyTaskToDate(taskId, newDate) {
+        const task = this.tasks.find(t => t.id === taskId);
+        if (!task) return;
+        
+        // Create a copy of the task with the new date
+        const taskCopy = {
+            title: task.title,
+            project_id: task.project_id,
+            is_recurring: task.is_recurring,
+            recurrence_type: task.recurrence_type,
+            recurrence_interval: task.recurrence_interval,
+            start_date: newDate
+        };
+        
+        try {
+            const timestamp = Date.now();
+            const response = await fetch(`/tasks?t=${timestamp}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache'
+                },
+                body: JSON.stringify(taskCopy)
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                console.log('Task copied successfully:', result);
+                
+                // Reload tasks to reflect changes
+                await this.loadTasks();
+                
+                this.hideAddTaskForm();
+                
+                // Show success message
+                this.showSuccessMessage(`Opgave kopieret til ${new Date(newDate).toLocaleDateString('da-DK')}`);
+            } else {
+                const error = await response.json();
+                alert(`Fejl: ${error.error}`);
+            }
+        } catch (error) {
+            console.error('Error copying task:', error);
+            alert('Der opstod en fejl ved kopiering af opgaven');
         }
     }
     
@@ -1215,42 +1607,7 @@ class TaskAgent {
     }
     
     // CRUD Operations for Tasks
-    async editTask(taskId) {
-        const task = this.tasks.find(t => t.id === taskId);
-        if (!task) return;
-        
-        const newTitle = prompt('Rediger opgave titel:', task.title);
-        if (!newTitle || newTitle === task.title) return;
-        
-        try {
-            const response = await fetch(`/tasks/${taskId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title: newTitle, completed: task.completed })
-            });
-            
-            if (response.ok) {
-                task.title = newTitle;
-                this.renderTasks();
-            }
-        } catch (error) {
-            console.error('Error updating task:', error);
-        }
-    }
-    
-    async deleteTask(taskId) {
-        if (!confirm('Er du sikker på, at du vil slette denne opgave?')) return;
-        
-        try {
-            const response = await fetch(`/tasks/${taskId}`, { method: 'DELETE' });
-            if (response.ok) {
-                this.tasks = this.tasks.filter(t => t.id !== taskId);
-                this.renderTasks();
-            }
-        } catch (error) {
-            console.error('Error deleting task:', error);
-        }
-    }
+
     
     // CRUD Operations for Clients
     async createClient() {
@@ -1573,6 +1930,54 @@ class TaskAgent {
         description.textContent = text;
     }
     
+    loadTaskForEdit(taskId) {
+        const task = this.tasks.find(t => t.id === taskId);
+        if (!task) return;
+        
+        document.getElementById('taskTitle').value = task.title;
+        document.getElementById('clientSelect').value = task.client_id || '';
+        document.getElementById('projectSelect').value = task.project_id || '';
+        document.getElementById('isRecurring').checked = !!task.is_recurring;
+        
+        if (task.is_recurring) {
+            document.getElementById('recurrenceType').value = task.recurrence_type || 'daily';
+            document.getElementById('recurrenceInterval').value = task.recurrence_interval || 1;
+            this.toggleRecurringOptions(true);
+        } else {
+            this.toggleRecurringOptions(false);
+        }
+    }
+    
+    loadTaskForDelete(taskId) {
+        const task = this.tasks.find(t => t.id === taskId);
+        if (!task) return;
+        
+        document.getElementById('deleteTaskTitle').textContent = task.title;
+    }
+    
+    loadTaskForMove(taskId) {
+        const task = this.tasks.find(t => t.id === taskId);
+        if (!task) return;
+        
+        document.getElementById('moveTaskTitle').textContent = task.title;
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('moveTaskDate').value = today;
+        document.getElementById('copyTask').checked = false;
+    }
+
+    updateMoveFormTitle(isCopy) {
+        const title = document.getElementById('formTitle');
+        const saveBtn = document.getElementById('saveBtnText');
+        
+        if (isCopy) {
+            title.textContent = 'Kopier opgave til ny dato';
+            saveBtn.textContent = 'Kopier opgave';
+        } else {
+            title.textContent = 'Flyt opgave til ny dato';
+            saveBtn.textContent = 'Flyt opgave';
+        }
+    }
+
     resetTaskForm() {
         document.getElementById('taskTitle').value = '';
         document.getElementById('clientSelect').value = '';
@@ -1581,6 +1986,10 @@ class TaskAgent {
         document.getElementById('recurrenceType').value = 'daily';
         document.getElementById('recurrenceInterval').value = '1';
         this.toggleRecurringOptions(false);
+        
+        // Reset form mode
+        this.formMode = 'add';
+        this.currentTaskId = null;
     }
 }
 

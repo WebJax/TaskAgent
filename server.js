@@ -18,11 +18,13 @@ await fastify.register(import('@fastify/static'), {
   root: path.join(__dirname, 'public'),
   prefix: '/',
   setHeaders: (res, path) => {
-    // Prevent caching during development
-    if (path.endsWith('.js')) {
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    // Aggressive cache prevention during development
+    if (path.endsWith('.js') || path.endsWith('.html') || path.endsWith('.css')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
       res.setHeader('Pragma', 'no-cache'); 
       res.setHeader('Expires', '0');
+      res.setHeader('Last-Modified', new Date().toUTCString());
+      res.setHeader('ETag', Date.now().toString());
     }
   }
 });
@@ -31,11 +33,17 @@ await fastify.register(import('@fastify/static'), {
 
 // Root route - serve HTML
 fastify.get('/', async (request, reply) => {
+  reply.header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+  reply.header('Pragma', 'no-cache');
+  reply.header('Expires', '0');
   return reply.sendFile('index.html');
 });
 
 // Reports route - serve reports HTML  
 fastify.get('/reports', async (request, reply) => {
+  reply.header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+  reply.header('Pragma', 'no-cache');
+  reply.header('Expires', '0');
   return reply.sendFile('reports.html');
 });
 
@@ -371,6 +379,57 @@ fastify.post('/tasks/:id/stop', async (request, reply) => {
   } catch (error) {
     reply.code(500);
     return { error: 'Kunne ikke stoppe timer' };
+  }
+});
+
+// Start timer på en recurring task completion
+fastify.post('/tasks/:id/start-recurring', async (request, reply) => {
+  try {
+    const { id } = request.params;
+    const { completionDate } = request.body;
+    
+    if (!completionDate) {
+      reply.code(400);
+      return { error: 'Completion date er påkrævet' };
+    }
+    
+    // Ensure the completion exists first
+    await pool.query(`
+      INSERT INTO recurring_task_completions (task_id, completion_date, last_start) 
+      VALUES (?, ?, NOW()) 
+      ON DUPLICATE KEY UPDATE last_start = NOW()
+    `, [id, completionDate]);
+    
+    return { status: 'started', taskId: id, completionDate };
+  } catch (error) {
+    reply.code(500);
+    return { error: 'Kunne ikke starte recurring timer' };
+  }
+});
+
+// Stop timer på en recurring task completion  
+fastify.post('/tasks/:id/stop-recurring', async (request, reply) => {
+  try {
+    const { id } = request.params;
+    const { completionDate } = request.body;
+    
+    if (!completionDate) {
+      reply.code(400);
+      return { error: 'Completion date er påkrævet' };
+    }
+    
+    // Update time spent and clear last_start
+    await pool.query(`
+      UPDATE recurring_task_completions
+      SET time_spent = COALESCE(time_spent, 0) + TIMESTAMPDIFF(SECOND, last_start, NOW()),
+          last_start = NULL
+      WHERE task_id = ? AND completion_date = ? AND last_start IS NOT NULL
+    `, [id, completionDate]);
+    
+    return { status: 'stopped', taskId: id, completionDate };
+  } catch (error) {
+    reply.code(500);
+    return { error: 'Kunne ikke stoppe recurring timer' };
   }
 });
 

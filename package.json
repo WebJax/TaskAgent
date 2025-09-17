@@ -7,7 +7,12 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "setup-db": "node setup-database.js"
+    "setup-db": "node setup-database.js",
+    "restart": "pkill -f \"node server.js\" && npm start",
+    "stop": "pkill -f \"node server.js\"",
+    "force-restart": "pkill -9 -f node && npm start",
+    "dev-restart": "pkill -f \"node server.js\" && npm run dev",
+    "clear-cache": "echo 'Cache clearing commands:' && echo '1. Hard refresh: Cmd+Shift+R (Mac) / Ctrl+Shift+R (PC)' && echo '2. Clear all: Cmd+Option+E (Mac) / F12 > Application > Clear Storage' && echo '3. Disable cache: F12 > Network > Disable cache'"
   },
   "dependencies": {
     "fastify": "^4.23.2",
