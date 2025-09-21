@@ -7,7 +7,11 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const fastify = Fastify({ logger: true });
+const fastify = Fastify({ 
+  logger: {
+    level: process.env.NODE_ENV === 'production' ? 'warn' : 'info'
+  }
+});
 
 // Registrer CORS og static files
 await fastify.register(import('@fastify/cors'), {
@@ -18,13 +22,20 @@ await fastify.register(import('@fastify/static'), {
   root: path.join(__dirname, 'public'),
   prefix: '/',
   setHeaders: (res, path) => {
-    // Aggressive cache prevention during development
-    if (path.endsWith('.js') || path.endsWith('.html') || path.endsWith('.css')) {
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
-      res.setHeader('Pragma', 'no-cache'); 
-      res.setHeader('Expires', '0');
-      res.setHeader('Last-Modified', new Date().toUTCString());
-      res.setHeader('ETag', Date.now().toString());
+    // Production caching for static assets
+    if (process.env.NODE_ENV === 'production') {
+      if (path.endsWith('.js') || path.endsWith('.css')) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000'); // 1 year
+      } else if (path.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'public, max-age=3600'); // 1 hour
+      }
+    } else {
+      // Development - no cache
+      if (path.endsWith('.js') || path.endsWith('.html') || path.endsWith('.css')) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+        res.setHeader('Pragma', 'no-cache'); 
+        res.setHeader('Expires', '0');
+      }
     }
   }
 });
@@ -348,7 +359,7 @@ fastify.put('/tasks/:id/move', async (request, reply) => {
       message: 'Opgave flyttet til ny dato'
     };
   } catch (error) {
-    console.error('Error moving task:', error);
+    fastify.log.error('Error moving task:', error);
     reply.code(500);
     return { error: 'Kunne ikke flytte opgave' };
   }
@@ -498,7 +509,7 @@ fastify.post('/tasks/:id/complete', async (request, reply) => {
     };
     
   } catch (error) {
-    console.error('Fejl ved fuldførelse af opgave:', error);
+    fastify.log.error('Fejl ved fuldførelse af opgave:', error);
     reply.code(500);
     return { error: 'Kunne ikke markere opgave som fuldført' };
   }
@@ -691,7 +702,7 @@ fastify.get('/recurring-completions', async (request, reply) => {
         );
         reply.send(rows);
     } catch (error) {
-        console.error('Database error:', error);
+        fastify.log.error('Database error:', error);
         reply.status(500).send({ error: 'Database error' });
     }
 });
@@ -708,7 +719,7 @@ fastify.post('/tasks/:id/complete-recurring', async (request, reply) => {
         );
         reply.send({ success: true });
     } catch (error) {
-        console.error('Database error:', error);
+        fastify.log.error('Database error:', error);
         reply.status(500).send({ error: 'Database error' });
     }
 });
@@ -725,7 +736,7 @@ fastify.post('/tasks/:id/uncomplete-recurring', async (request, reply) => {
         );
         reply.send({ success: true });
     } catch (error) {
-        console.error('Database error:', error);
+        fastify.log.error('Database error:', error);
         reply.status(500).send({ error: 'Database error' });
     }
 });
@@ -734,7 +745,9 @@ fastify.post('/tasks/:id/uncomplete-recurring', async (request, reply) => {
 const start = async () => {
   try {
     await fastify.listen({ port: 3000, host: '0.0.0.0' });
-    console.log('🚀 Server kører på http://127.0.0.1:3000');
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('🚀 Server kører på http://127.0.0.1:3000');
+    }
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);

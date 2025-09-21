@@ -5,8 +5,8 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js",
+    "start": "NODE_ENV=production node server.js",
+    "dev": "NODE_ENV=development node --watch server.js",
     "setup-db": "node setup-database.js",
     "restart": "pkill -f \"node server.js\" && npm start",
     "stop": "pkill -f \"node server.js\"",

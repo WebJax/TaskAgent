@@ -50,16 +50,13 @@ class TaskAgent {
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js')
                 .then(registration => {
-                    console.log('PWA: Service Worker registered:', registration);
                 })
                 .catch(error => {
-                    console.error('PWA: Service Worker registration failed:', error);
                 });
         }
         
         // Handle PWA installation prompt
         window.addEventListener('beforeinstallprompt', (e) => {
-            console.log('PWA: Installation prompt available');
             e.preventDefault();
             this.deferredPrompt = e;
             this.showInstallButton();
@@ -67,7 +64,6 @@ class TaskAgent {
         
         // Handle PWA installation
         window.addEventListener('appinstalled', () => {
-            console.log('PWA: App installed successfully');
             this.isInstalled = true;
             this.hideInstallButton();
             this.showInstallSuccessMessage();
@@ -76,7 +72,6 @@ class TaskAgent {
         // Check if already installed
         if (window.matchMedia('(display-mode: standalone)').matches) {
             this.isInstalled = true;
-            console.log('PWA: Running in standalone mode');
         }
         
         // Handle URL parameters for shortcuts
@@ -120,7 +115,6 @@ class TaskAgent {
         this.deferredPrompt.prompt();
         const { outcome } = await this.deferredPrompt.userChoice;
         
-        console.log('PWA: Installation choice:', outcome);
         this.deferredPrompt = null;
         this.hideInstallButton();
     }
@@ -173,7 +167,6 @@ class TaskAgent {
     async requestNotificationPermission() {
         if ('Notification' in window && 'serviceWorker' in navigator) {
             const permission = await Notification.requestPermission();
-            console.log('PWA: Notification permission:', permission);
         }
     }
     
@@ -301,7 +294,6 @@ class TaskAgent {
         
         // Event delegation for dynamically created buttons
         document.addEventListener('click', (e) => {
-            console.log('Click detected:', e.target.className, e.target.tagName, e.target.dataset);
             
             // Find the actual button element (could be clicked on icon inside)
             const editBtn = e.target.closest('.edit-btn');
@@ -309,56 +301,44 @@ class TaskAgent {
             const moveBtn = e.target.closest('.move-btn');
             
             if (editBtn) {
-                console.log('Edit button clicked');
                 e.preventDefault();
                 e.stopPropagation();
                 const taskId = parseInt(editBtn.getAttribute('data-task-id'));
                 const clientId = parseInt(editBtn.getAttribute('data-client-id'));
                 const projectId = parseInt(editBtn.getAttribute('data-project-id'));
                 
-                console.log('IDs found:', { taskId, clientId, projectId });
                 
                 if (taskId) {
-                    console.log('Editing task:', taskId);
                     this.showTaskForm('edit', taskId);
                 } else if (clientId) {
                     const clientName = e.target.getAttribute('data-client-name');
-                    console.log('Editing client:', clientId, clientName);
                     this.editClient(clientId, clientName);
                 } else if (projectId) {
                     const projectName = editBtn.getAttribute('data-project-name');
                     const projectClientId = editBtn.getAttribute('data-project-client-id');
-                    console.log('Editing project:', projectId, projectName);
                     this.editProject(projectId, projectName, projectClientId);
                 }
             } else if (deleteBtn) {
-                console.log('Delete button clicked');
                 e.preventDefault();
                 e.stopPropagation();
                 const taskId = parseInt(deleteBtn.getAttribute('data-task-id'));
                 const clientId = parseInt(deleteBtn.getAttribute('data-client-id'));
                 const projectId = parseInt(deleteBtn.getAttribute('data-project-id'));
                 
-                console.log('IDs found for delete:', { taskId, clientId, projectId });
                 
                 if (taskId) {
-                    console.log('Deleting task:', taskId);
                     this.showTaskForm('delete', taskId);
                 } else if (clientId) {
-                    console.log('Deleting client:', clientId);
                     this.deleteClient(clientId);
                 } else if (projectId) {
-                    console.log('Deleting project:', projectId);
                     this.deleteProject(projectId);
                 }
             } else if (moveBtn) {
-                console.log('Move button clicked');
                 e.preventDefault();
                 e.stopPropagation();
                 const taskId = parseInt(moveBtn.getAttribute('data-task-id'));
                 
                 if (taskId) {
-                    console.log('Moving task:', taskId);
                     this.showTaskForm('move', taskId);
                 }
             }
@@ -407,14 +387,12 @@ class TaskAgent {
                 this.recurringCompletions = await response.json();
             }
         } catch (error) {
-            console.error('Error loading recurring completions:', error);
         }
     }
 
     async loadTasks() {
         try {
             const timestamp = Date.now();
-            console.log('Loading tasks with timestamp:', timestamp);
             const response = await fetch(`/tasks?t=${timestamp}`, {
                 headers: {
                     'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -424,12 +402,10 @@ class TaskAgent {
             });
             if (response.ok) {
                 this.tasks = await response.json();
-                console.log('Loaded tasks from server:', this.tasks.length);
                 await this.loadRecurringCompletions();
                 this.renderTasks();
             }
         } catch (error) {
-            console.error('Error loading tasks:', error);
         }
     }
     
@@ -448,7 +424,6 @@ class TaskAgent {
                 this.updateClientOptions();
             }
         } catch (error) {
-            console.error('Error loading clients:', error);
         }
     }
     
@@ -466,7 +441,6 @@ class TaskAgent {
                 this.projects = await response.json();
             }
         } catch (error) {
-            console.error('Error loading projects:', error);
         }
     }
     
@@ -525,7 +499,6 @@ class TaskAgent {
             let response, logMessage;
             
             if (this.formMode === 'edit' && this.currentTaskId) {
-                console.log('Updating task:', this.currentTaskId, taskData);
                 logMessage = 'Updated task';
                 response = await fetch(`/tasks/${this.currentTaskId}?t=${timestamp}`, {
                     method: 'PUT',
@@ -537,7 +510,6 @@ class TaskAgent {
                     body: JSON.stringify(taskData)
                 });
             } else {
-                console.log('Creating new task:', taskData);
                 logMessage = 'New task created';
                 response = await fetch(`/tasks?t=${timestamp}`, {
                     method: 'POST',
@@ -550,27 +522,20 @@ class TaskAgent {
                 });
             }
             
-            console.log('Task operation response status:', response.status);
             
             if (response.ok) {
                 const task = await response.json();
-                console.log(logMessage + ':', task);
                 
                 // Reload all tasks to ensure consistency
-                console.log('Reloading tasks after creation...');
                 await this.loadTasks();
-                console.log('Tasks reloaded, current count:', this.tasks.length);
                 
                 this.hideAddTaskForm();
                 this.resetTaskForm();
                 
                 // Show success message
-                console.log('Task list updated');
             } else {
-                console.error('Failed to save task:', response.status, response.statusText);
             }
         } catch (error) {
-            console.error('Error saving task:', error);
         }
     }
 
@@ -588,15 +553,12 @@ class TaskAgent {
             });
             
             if (response.ok) {
-                console.log('Task deleted:', this.currentTaskId);
                 await this.loadTasks();
                 this.hideAddTaskForm();
             } else {
-                console.error('Failed to delete task:', response.status);
                 alert('Kunne ikke slette opgaven');
             }
         } catch (error) {
-            console.error('Error deleting task:', error);
             alert('Fejl ved sletning af opgave');
         }
     }
@@ -672,7 +634,6 @@ class TaskAgent {
                 }
             }
         } catch (error) {
-            console.error('Error toggling task:', error);
         }
     }
     
@@ -717,7 +678,6 @@ class TaskAgent {
                 this.renderTasks();
             }
         } catch (error) {
-            console.error('Error starting timer:', error);
         }
     }
     
@@ -759,7 +719,6 @@ class TaskAgent {
                 await this.loadTasks(); // Reload to get updated times
             }
         } catch (error) {
-            console.error('Error stopping timer:', error);
         }
     }
 
@@ -772,7 +731,6 @@ class TaskAgent {
             this.showTimerTimeoutWarning();
         }, 3600000); // 1 hour
         
-        console.log('Timer timeout set for 1 hour');
     }
     
     clearTimerTimeout() {
@@ -817,7 +775,6 @@ class TaskAgent {
         
         // Auto-stop after 1 minute if no response
         this.timerTimeoutWarning = setTimeout(() => {
-            console.log('No response to timer timeout - auto-stopping');
             this.stopTimer();
             this.showAutoStopNotification();
         }, 60000); // 1 minute
@@ -903,10 +860,8 @@ class TaskAgent {
         }
         
         if (action === 'continue') {
-            console.log('User chose to continue timer - setting new 1-hour timeout');
             this.setupTimerTimeout(); // Set up another 1-hour timeout
         } else {
-            console.log('User chose to stop timer');
             this.stopTimer();
         }
     }
@@ -1515,7 +1470,6 @@ class TaskAgent {
             
             if (response.ok) {
                 const result = await response.json();
-                console.log('Task moved successfully:', result);
                 
                 // Reload tasks to reflect changes
                 await this.loadTasks();
@@ -1529,7 +1483,6 @@ class TaskAgent {
                 alert(`Fejl: ${error.error}`);
             }
         } catch (error) {
-            console.error('Error moving task:', error);
             alert('Der opstod en fejl ved flytning af opgaven');
         }
     }
@@ -1562,7 +1515,6 @@ class TaskAgent {
             
             if (response.ok) {
                 const result = await response.json();
-                console.log('Task copied successfully:', result);
                 
                 // Reload tasks to reflect changes
                 await this.loadTasks();
@@ -1576,7 +1528,6 @@ class TaskAgent {
                 alert(`Fejl: ${error.error}`);
             }
         } catch (error) {
-            console.error('Error copying task:', error);
             alert('Der opstod en fejl ved kopiering af opgaven');
         }
     }
@@ -1629,7 +1580,6 @@ class TaskAgent {
                 this.updateClientOptions();
             }
         } catch (error) {
-            console.error('Error creating client:', error);
         }
     }
     
@@ -1651,7 +1601,6 @@ class TaskAgent {
                 this.updateClientOptions();
             }
         } catch (error) {
-            console.error('Error updating client:', error);
         }
     }
     
@@ -1667,7 +1616,6 @@ class TaskAgent {
                 await this.loadProjects(); // Reload projects as they may be affected
             }
         } catch (error) {
-            console.error('Error deleting client:', error);
         }
     }
     
@@ -1692,7 +1640,6 @@ class TaskAgent {
                 this.renderProjectsList();
             }
         } catch (error) {
-            console.error('Error creating project:', error);
         }
     }
     
@@ -1713,7 +1660,6 @@ class TaskAgent {
                 this.renderProjectsList();
             }
         } catch (error) {
-            console.error('Error updating project:', error);
         }
     }
     
@@ -1728,7 +1674,6 @@ class TaskAgent {
                 await this.loadTasks(); // Reload tasks as they may be affected
             }
         } catch (error) {
-            console.error('Error deleting project:', error);
         }
     }
     
@@ -1891,7 +1836,6 @@ class TaskAgent {
                 </div>
             `;
             li.innerHTML = buttonHTML;
-            console.log('Created project item:', project.id, buttonHTML);
             projectsList.appendChild(li);
         });
     }

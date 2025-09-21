@@ -15,15 +15,12 @@ const urlsToCache = [
 
 // Install event - cache resources
 self.addEventListener('install', event => {
-  console.log('Service Worker: Installing...');
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('Service Worker: Caching files');
         return cache.addAll(urlsToCache);
       })
       .then(() => {
-        console.log('Service Worker: Installation complete');
         return self.skipWaiting();
       })
   );
@@ -31,19 +28,16 @@ self.addEventListener('install', event => {
 
 // Activate event - cleanup old caches
 self.addEventListener('activate', event => {
-  console.log('Service Worker: Activating...');
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cacheName => {
           if (cacheName !== CACHE_NAME) {
-            console.log('Service Worker: Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
     }).then(() => {
-      console.log('Service Worker: Activation complete');
       return self.clients.claim();
     })
   );
@@ -61,7 +55,6 @@ self.addEventListener('fetch', event => {
       .then(response => {
         // Return cached version or fetch from network
         if (response) {
-          console.log('Service Worker: Serving from cache:', event.request.url);
           return response;
         }
 
@@ -95,7 +88,6 @@ self.addEventListener('fetch', event => {
 
 // Background sync for when connection returns
 self.addEventListener('sync', event => {
-  console.log('Service Worker: Background sync triggered');
   if (event.tag === 'background-sync') {
     event.waitUntil(syncData());
   }
@@ -103,7 +95,6 @@ self.addEventListener('sync', event => {
 
 // Notification click handling
 self.addEventListener('notificationclick', event => {
-  console.log('Service Worker: Notification clicked');
   event.notification.close();
 
   event.waitUntil(
@@ -113,7 +104,6 @@ self.addEventListener('notificationclick', event => {
 
 // Push notification handling
 self.addEventListener('push', event => {
-  console.log('Service Worker: Push received');
   
   const options = {
     body: event.data ? event.data.text() : 'Ny opdatering tilgængelig',
@@ -147,7 +137,6 @@ self.addEventListener('push', event => {
 async function syncData() {
   try {
     // Here you would sync any offline changes back to server
-    console.log('Service Worker: Syncing data...');
     
     // Example: Send any pending tasks, timer data, etc.
     const pendingData = await getStoredPendingData();
@@ -155,9 +144,7 @@ async function syncData() {
       await syncPendingData(pendingData);
     }
     
-    console.log('Service Worker: Data sync complete');
   } catch (error) {
-    console.error('Service Worker: Sync failed:', error);
   }
 }
 

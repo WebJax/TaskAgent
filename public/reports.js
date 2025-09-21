@@ -75,7 +75,6 @@ class ReportsApp {
             this.updatePeriodLabel();
             
         } catch (error) {
-            console.error('Error loading reports:', error);
             this.showError('Fejl ved indlæsning af rapporter');
         }
     }
