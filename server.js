@@ -1,4 +1,5 @@
 // server.js
+import 'dotenv/config';
 import Fastify from 'fastify';
 import pool from './db.js';
 import path from 'path';
@@ -744,9 +745,10 @@ fastify.post('/tasks/:id/uncomplete-recurring', async (request, reply) => {
 // ---- SERVER START ----
 const start = async () => {
   try {
-    await fastify.listen({ port: 3000, host: '0.0.0.0' });
+    const port = process.env.PORT || 3000;
+    await fastify.listen({ port: port, host: '0.0.0.0' });
     if (process.env.NODE_ENV !== 'production') {
-      console.log('🚀 Server kører på http://127.0.0.1:3000');
+      console.log(`🚀 Server kører på http://127.0.0.1:${port}`);
     }
   } catch (err) {
     fastify.log.error(err);

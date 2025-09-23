@@ -6,6 +6,7 @@
   "main": "server.js",
   "scripts": {
     "start": "NODE_ENV=production node server.js",
+    "build": "echo 'No build step required for Node.js app'",
     "dev": "NODE_ENV=development node --watch server.js",
     "setup-db": "node setup-database.js",
     "restart": "pkill -f \"node server.js\" && npm start",
@@ -15,12 +16,17 @@
     "clear-cache": "echo 'Cache clearing commands:' && echo '1. Hard refresh: Cmd+Shift+R (Mac) / Ctrl+Shift+R (PC)' && echo '2. Clear all: Cmd+Option+E (Mac) / F12 > Application > Clear Storage' && echo '3. Disable cache: F12 > Network > Disable cache'"
   },
   "dependencies": {
-    "fastify": "^4.23.2",
-    "mysql2": "^3.6.0",
     "@fastify/cors": "^8.4.0",
-    "@fastify/static": "^6.12.0"
+    "@fastify/static": "^6.12.0",
+    "dotenv": "^17.2.2",
+    "fastify": "^4.23.2",
+    "mysql2": "^3.6.0"
   },
-  "keywords": ["task", "time-tracking", "project-management"],
+  "keywords": [
+    "task",
+    "time-tracking",
+    "project-management"
+  ],
   "author": "",
   "license": "MIT"
 }

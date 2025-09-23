@@ -1,23 +1,30 @@
-// setup-database-clean.js - Ren implementering med gentagende opgaver
+// setup-database.js - Database setup med environment variabler
+import 'dotenv/config';
 import mysql from 'mysql2/promise';
 
 const config = {
-  host: '127.0.0.1',
-  user: 'root',
-  password: '2010Thuva',
-  multipleStatements: true
+  host: process.env.MYSQLHOST || '127.0.0.1',
+  user: process.env.MYSQLUSER || 'root',
+  password: process.env.MYSQLPASSWORD || '2010Thuva',
+  port: process.env.MYSQLPORT || 3306,
+  multipleStatements: true,
+  ssl: process.env.NODE_ENV === 'production' ? {
+    rejectUnauthorized: false
+  } : false
 };
 
 const createDatabase = async () => {
   try {
     const connection = await mysql.createConnection(config);
     
+    const databaseName = process.env.MYSQLDATABASE || 'opgavestyring';
+    
     console.log('🗑️ Dropper eksisterende database...');
-    await connection.execute('DROP DATABASE IF EXISTS opgavestyring');
+    await connection.execute(`DROP DATABASE IF EXISTS ${databaseName}`);
     
     console.log('📦 Opretter ny database...');
     await connection.execute(`
-      CREATE DATABASE opgavestyring
+      CREATE DATABASE ${databaseName}
       CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
     `);
     
@@ -26,7 +33,7 @@ const createDatabase = async () => {
     // Opret ny connection til den specifikke database
     const dbConnection = await mysql.createConnection({
       ...config,
-      database: 'opgavestyring'
+      database: databaseName
     });
     
     console.log('📋 Opretter tabeller...');
