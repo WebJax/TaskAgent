@@ -156,4 +156,36 @@ taskagent/
 4. ☑️ Run `npm run setup-db` to initialize database
 5. ☑️ Test app at Railway-provided URL
 
+## 🛠️ Railway Deployment Fix
+
+If you get npm warnings during deployment, these files resolve the issue:
+
+### `.npmrc`
+```
+fund=false
+audit=false
+omit=dev
+```
+
+### `nixpacks.toml`
+```toml
+[phases.build]
+cmds = ["npm ci --omit=dev"]
+
+[phases.start] 
+cmd = "NODE_ENV=production node server.js"
+```
+
+### `railway.json`
+```json
+{
+  "build": {
+    "buildCommand": "npm run build"
+  },
+  "deploy": {
+    "startCommand": "NODE_ENV=production npm start"
+  }
+}
+```
+
 Your TaskAgent app is now production-ready with Railway! 🎉

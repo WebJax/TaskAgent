@@ -1,0 +1,9 @@
+# Nixpacks configuration for Railway
+[phases.build]
+cmds = ["npm ci --omit=dev"]
+
+[phases.start]
+cmd = "NODE_ENV=production node server.js"
+
+[variables]
+NODE_ENV = "production"

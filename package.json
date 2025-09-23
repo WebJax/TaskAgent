@@ -5,8 +5,8 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "start": "NODE_ENV=production node server.js",
-    "build": "echo 'No build step required for Node.js app'",
+    "start": "node server.js",
+    "build": "npm install --omit=dev",
     "dev": "NODE_ENV=development node --watch server.js",
     "setup-db": "node setup-database.js",
     "restart": "pkill -f \"node server.js\" && npm start",
