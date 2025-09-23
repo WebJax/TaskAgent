@@ -6,7 +6,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "build": "npm install --omit=dev",
+    "build": "echo 'Build step complete - dependencies installed via nixpacks'",
+    "railway:build": "npm ci --omit=dev --no-audit --no-fund",
     "dev": "NODE_ENV=development node --watch server.js",
     "setup-db": "node setup-database.js",
     "restart": "pkill -f \"node server.js\" && npm start",
