@@ -1,0 +1,19 @@
+# .htaccess for /api directory
+# Handle all API requests through index.php
+
+RewriteEngine On
+
+# Redirect everything to index.php while preserving the path
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php [L,QSA]
+
+# Security - don't allow direct access to config files
+<Files "*.php">
+    <RequireAll>
+        Require all granted
+    </RequireAll>
+</Files>
+
+# Block access to config directory from web
+RedirectMatch 403 ^/config/
