@@ -1,19 +1,23 @@
-# .htaccess for /api directory
+# .htaccess for /api directory - Simply.com Compatible
 # Handle all API requests through index.php
 
-RewriteEngine On
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Redirect everything to index.php while preserving the path
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ index.php [L,QSA]
+</IfModule>
 
-# Redirect everything to index.php while preserving the path
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^(.*)$ index.php [L,QSA]
+# Security - block access to backup files
+<FilesMatch "\.(php\.bak|backup)$">
+    Require all denied
+</FilesMatch>
 
-# Security - don't allow direct access to config files
-<Files "*.php">
+# Ensure PHP files can be executed
+<FilesMatch "\.php$">
     <RequireAll>
         Require all granted
     </RequireAll>
-</Files>
-
-# Block access to config directory from web
-RedirectMatch 403 ^/config/
+</FilesMatch>
