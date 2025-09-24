@@ -5,6 +5,9 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
     
+    # Serve service worker from root (PWA requirement)
+    RewriteRule ^sw\.js$ sw.js [L]
+    
     # Redirect all API calls to api/index.php
     RewriteRule ^api/(.*)$ api/index.php [L,QSA]
     

@@ -376,7 +376,7 @@ class TaskAgent {
     async loadRecurringCompletions() {
         try {
             const timestamp = Date.now();
-            const response = await fetch(`/recurring-completions?t=${timestamp}`, {
+            const response = await fetch(`/api/recurring-completions?t=${timestamp}`, {
                 headers: {
                     'Cache-Control': 'no-cache, no-store, must-revalidate',
                     'Pragma': 'no-cache',
@@ -393,7 +393,7 @@ class TaskAgent {
     async loadTasks() {
         try {
             const timestamp = Date.now();
-            const response = await fetch(`/tasks?t=${timestamp}`, {
+            const response = await fetch(`/api/tasks?t=${timestamp}`, {
                 headers: {
                     'Cache-Control': 'no-cache, no-store, must-revalidate',
                     'Pragma': 'no-cache',
@@ -412,7 +412,7 @@ class TaskAgent {
     async loadClients() {
         try {
             const timestamp = Date.now();
-            const response = await fetch(`/clients?t=${timestamp}`, {
+            const response = await fetch(`/api/clients?t=${timestamp}`, {
                 headers: {
                     'Cache-Control': 'no-cache, no-store, must-revalidate',
                     'Pragma': 'no-cache',
@@ -430,7 +430,7 @@ class TaskAgent {
     async loadProjects() {
         try {
             const timestamp = Date.now();
-            const response = await fetch(`/projects?t=${timestamp}`, {
+            const response = await fetch(`/api/projects?t=${timestamp}`, {
                 headers: {
                     'Cache-Control': 'no-cache, no-store, must-revalidate',
                     'Pragma': 'no-cache',
@@ -500,7 +500,7 @@ class TaskAgent {
             
             if (this.formMode === 'edit' && this.currentTaskId) {
                 logMessage = 'Updated task';
-                response = await fetch(`/tasks/${this.currentTaskId}?t=${timestamp}`, {
+                response = await fetch(`/api/tasks/${this.currentTaskId}?t=${timestamp}`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
@@ -511,7 +511,7 @@ class TaskAgent {
                 });
             } else {
                 logMessage = 'New task created';
-                response = await fetch(`/tasks?t=${timestamp}`, {
+                response = await fetch(`/api/tasks?t=${timestamp}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -544,7 +544,7 @@ class TaskAgent {
         
         try {
             const timestamp = Date.now();
-            const response = await fetch(`/tasks/${this.currentTaskId}?t=${timestamp}`, {
+            const response = await fetch(`/api/tasks/${this.currentTaskId}?t=${timestamp}`, {
                 method: 'DELETE',
                 headers: {
                     'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -575,7 +575,7 @@ class TaskAgent {
                 
                 if (isCompleted) {
                     // Fjern completion for denne dato
-                    const response = await fetch(`/tasks/${taskId}/uncomplete-recurring`, {
+                    const response = await fetch(`/api/tasks/${taskId}/uncomplete-recurring`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ date: completionDate })
@@ -590,7 +590,7 @@ class TaskAgent {
                     }
                 } else {
                     // Marker som udført for denne dato
-                    const response = await fetch(`/tasks/${taskId}/complete-recurring`, {
+                    const response = await fetch(`/api/tasks/${taskId}/complete-recurring`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ date: completionDate })
@@ -610,7 +610,7 @@ class TaskAgent {
                 // Normal opgave - samme logik som før
                 if (task.completed) {
                     // Unmark as completed
-                    const response = await fetch(`/tasks/${taskId}/uncomplete`, {
+                    const response = await fetch(`/api/tasks/${taskId}/uncomplete`, {
                         method: 'POST'
                     });
                     
@@ -621,7 +621,7 @@ class TaskAgent {
                     }
                 } else {
                     // Mark as completed
-                    const response = await fetch(`/tasks/${taskId}/complete`, {
+                    const response = await fetch(`/api/tasks/${taskId}/complete`, {
                         method: 'POST'
                     });
                     
@@ -650,14 +650,14 @@ class TaskAgent {
             if (task && task.is_recurring) {
                 // For recurring tasks, use the recurring timer endpoint
                 const completionDate = this.selectedDate.toISOString().split('T')[0];
-                response = await fetch(`/tasks/${taskId}/start-recurring`, {
+                response = await fetch(`/api/tasks/${taskId}/start-recurring`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ completion_date: completionDate })
                 });
             } else {
                 // For regular tasks, use the regular timer endpoint
-                response = await fetch(`/tasks/${taskId}/start`, {
+                response = await fetch(`/api/tasks/${taskId}/start`, {
                     method: 'POST'
                 });
             }
@@ -691,14 +691,14 @@ class TaskAgent {
             if (task && task.is_recurring) {
                 // For recurring tasks, use the recurring timer endpoint
                 const completionDate = this.selectedDate.toISOString().split('T')[0];
-                response = await fetch(`/tasks/${this.activeTaskId}/stop-recurring`, {
+                response = await fetch(`/api/tasks/${this.activeTaskId}/stop-recurring`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ completion_date: completionDate })
                 });
             } else {
                 // For regular tasks, use the regular timer endpoint
-                response = await fetch(`/tasks/${this.activeTaskId}/stop`, {
+                response = await fetch(`/api/tasks/${this.activeTaskId}/stop`, {
                     method: 'POST'
                 });
             }
@@ -1458,7 +1458,7 @@ class TaskAgent {
     async moveTaskToDate(taskId, newDate) {
         try {
             const timestamp = Date.now();
-            const response = await fetch(`/tasks/${taskId}/move?t=${timestamp}`, {
+            const response = await fetch(`/api/tasks/${taskId}/move?t=${timestamp}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1503,7 +1503,7 @@ class TaskAgent {
         
         try {
             const timestamp = Date.now();
-            const response = await fetch(`/tasks?t=${timestamp}`, {
+            const response = await fetch(`/api/tasks?t=${timestamp}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1566,7 +1566,7 @@ class TaskAgent {
         if (!name) return;
         
         try {
-            const response = await fetch('/clients', {
+            const response = await fetch('/api/clients', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name })
@@ -1588,7 +1588,7 @@ class TaskAgent {
         if (!newName || newName === currentName) return;
         
         try {
-            const response = await fetch(`/clients/${clientId}`, {
+            const response = await fetch(`/api/clients/${clientId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name: newName })
@@ -1608,7 +1608,7 @@ class TaskAgent {
         if (!confirm('Er du sikker på, at du vil slette denne kunde?')) return;
         
         try {
-            const response = await fetch(`/clients/${clientId}`, { method: 'DELETE' });
+            const response = await fetch(`/api/clients/${clientId}`, { method: 'DELETE' });
             if (response.ok) {
                 this.clients = this.clients.filter(c => c.id !== clientId);
                 this.renderClientsList();
@@ -1626,7 +1626,7 @@ class TaskAgent {
         if (!name) return;
         
         try {
-            const response = await fetch('/projects', {
+            const response = await fetch('/api/projects', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, client_id: clientId })
@@ -1648,7 +1648,7 @@ class TaskAgent {
         if (!newName || newName === currentName) return;
         
         try {
-            const response = await fetch(`/projects/${projectId}`, {
+            const response = await fetch(`/api/projects/${projectId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name: newName, client_id: currentClientId })
@@ -1667,7 +1667,7 @@ class TaskAgent {
         if (!confirm('Er du sikker på, at du vil slette dette projekt?')) return;
         
         try {
-            const response = await fetch(`/projects/${projectId}`, { method: 'DELETE' });
+            const response = await fetch(`/api/projects/${projectId}`, { method: 'DELETE' });
             if (response.ok) {
                 this.projects = this.projects.filter(p => p.id !== projectId);
                 this.renderProjectsList();

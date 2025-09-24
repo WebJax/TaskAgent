@@ -5,16 +5,25 @@ class Database {
     private static $instance = null;
     private $connection;
     
-    // Database credentials
-    private $host = 'mysql58.unoeuro.com';
-    private $username = 'jaxweb_dk';
-    private $password = 'zh9ktrcp';
-    private $database = 'jaxweb_dk_db';
-    private $port = 3306;
-    
     private function __construct() {
         try {
-            $dsn = "mysql:host={$this->host};port={$this->port};dbname={$this->database};charset=utf8mb4";
+            // Environment-aware database configuration
+            $isProduction = isset($_SERVER['HTTP_HOST']) && 
+                          ($_SERVER['HTTP_HOST'] === 'taskagent.jaxweb.dk' || 
+                           strpos($_SERVER['HTTP_HOST'], 'unoeuro.com') !== false ||
+                           strpos($_SERVER['HTTP_HOST'], 'simply.com') !== false);
+            
+            if ($isProduction) {
+                // Production database (Simply.com hosting)
+                $dsn = "mysql:host=mysql58.unoeuro.com;port=3306;dbname=jaxweb_dk_db;charset=utf8mb4";
+                $username = 'jaxweb_dk';
+                $password = 'zh9ktrcp';
+            } else {
+                // Local development database
+                $dsn = "mysql:host=127.0.0.1;port=3306;dbname=opgavestyring;charset=utf8mb4";
+                $username = 'root';
+                $password = '2010Thuva';
+            }
             
             $options = [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
@@ -23,11 +32,24 @@ class Database {
                 PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4"
             ];
             
-            $this->connection = new PDO($dsn, $this->username, $this->password, $options);
+            $this->connection = new PDO($dsn, $username, $password, $options);
             
         } catch (PDOException $e) {
             error_log("Database Connection Error: " . $e->getMessage());
-            throw new Exception("Database forbindelsesfejl: Kan ikke oprette forbindelse til databasen");
+            
+            // If local development fails, try with production credentials
+            if (!isset($isProduction) || !$isProduction) {
+                error_log("Local database unavailable, falling back to production");
+                try {
+                    $dsn = "mysql:host=mysql58.unoeuro.com;port=3306;dbname=jaxweb_dk_db;charset=utf8mb4";
+                    $this->connection = new PDO($dsn, 'jaxweb_dk', 'zh9ktrcp', $options);
+                } catch (PDOException $e2) {
+                    error_log("Production database also unavailable: " . $e2->getMessage());
+                    throw new Exception("Database forbindelsesfejl: Ingen tilgængelige databaser");
+                }
+            } else {
+                throw new Exception("Database forbindelsesfejl: Kan ikke oprette forbindelse til databasen");
+            }
         }
     }
     

@@ -81,22 +81,22 @@ class ReportsApp {
     
     async loadTimeReport() {
         const params = this.getDateParams();
-        const response = await fetch(`/reports/time?${params}`);
+        const response = await fetch(`/api/reports/time?${params}`);
         return response.json();
     }
     
     async loadProjectAnalytics() {
-        const response = await fetch('/reports/projects');
+        const response = await fetch('/api/reports/projects');
         return response.json();
     }
     
     async loadClientAnalytics() {
-        const response = await fetch('/reports/clients');
+        const response = await fetch('/api/reports/clients');
         return response.json();
     }
     
     async loadProductivityData() {
-        const response = await fetch('/reports/productivity');
+        const response = await fetch('/api/reports/productivity');
         return response.json();
     }
     
