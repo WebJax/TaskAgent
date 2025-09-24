@@ -4,10 +4,13 @@
   "description": "Simpel opgave- og tidsstyring med kunder, projekter og opgaver",
   "type": "module",
   "main": "server.js",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
   "scripts": {
     "start": "node server.js",
-    "build": "echo 'Build step complete - dependencies installed via nixpacks'",
-    "railway:build": "npm ci --omit=dev --no-audit --no-fund",
+    "build": "npm install --production --no-audit --no-fund",
     "dev": "NODE_ENV=development node --watch server.js",
     "setup-db": "node setup-database.js",
     "restart": "pkill -f \"node server.js\" && npm start",
