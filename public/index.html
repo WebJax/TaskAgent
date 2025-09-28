@@ -453,7 +453,12 @@
             display: block;
         }
         
-        .pause-btn {
+        .header-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .pause-btn, .pomodoro-btn {
             background: rgba(255, 255, 255, 0.2);
             border: none;
             color: white;
@@ -468,9 +473,13 @@
             transition: all 0.3s;
         }
         
-        .pause-btn:hover {
+        .pause-btn:hover, .pomodoro-btn:hover {
             background: rgba(255, 255, 255, 0.3);
             transform: scale(1.1);
+        }
+        
+        .pomodoro-btn.active {
+            background: #dc3545;
         }
         
         .install-btn {
@@ -899,15 +908,240 @@
         .task-item.timing .task-date {
             color: rgba(255, 255, 255, 0.9);
         }
+        
+        /* Pomodoro Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .pomodoro-modal {
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            border-radius: 24px;
+            padding: 40px;
+            width: 90%;
+            max-width: 420px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.9);
+        }
+        
+        .pomodoro-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        
+        .pomodoro-header h2 {
+            margin: 0;
+            color: #2d3748;
+            font-size: 24px;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 50%;
+            transition: background-color 0.3s;
+        }
+        
+        .close-btn:hover {
+            background: #f7fafc;
+        }
+        
+        .pomodoro-timer {
+            margin-bottom: 30px;
+        }
+        
+        .timer-circle {
+            position: relative;
+            display: inline-block;
+            background: radial-gradient(circle, #ffffff 0%, #f7fafc 80%);
+            border-radius: 50%;
+            padding: 10px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
+        
+        .timer-svg {
+            transform: rotate(-90deg);
+        }
+        
+        .timer-bg {
+            fill: none;
+            stroke: #e2e8f0;
+            stroke-width: 10;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+        }
+        
+        .timer-progress {
+            fill: none;
+            stroke: #dc3545;
+            stroke-width: 10;
+            stroke-linecap: round;
+            stroke-dasharray: 565.48;
+            stroke-dashoffset: 565.48;
+            transition: stroke-dashoffset 1s linear;
+            filter: drop-shadow(0 2px 4px rgba(220,53,69,0.3));
+        }
+        
+        .pomodoro-modal .timer-display {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 10;
+            pointer-events: none;
+            width: 160px;
+            height: 100px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: transparent;
+        }
+        
+        .pomodoro-modal .time-text {
+            display: block;
+            font-size: 28px;
+            font-weight: 800;
+            color: #1a202c;
+            margin: 0;
+            font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+            letter-spacing: 2px;
+            text-shadow: 0 2px 4px rgba(255,255,255,0.8);
+            line-height: 1.2;
+        }
+        
+        .pomodoro-modal .session-type {
+            display: block;
+            font-size: 12px;
+            color: #4a5568;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+            margin: 4px 0 0 0;
+            text-shadow: 0 1px 2px rgba(255,255,255,0.8);
+        }
+        
+        .pomodoro-info {
+            margin-bottom: 30px;
+        }
+        
+        .session-counter {
+            font-size: 16px;
+            color: #4a5568;
+            margin-bottom: 15px;
+        }
+        
+        .session-dots {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #e2e8f0;
+            transition: background-color 0.3s;
+        }
+        
+        .dot.active {
+            background: #dc3545;
+        }
+        
+        .dot.completed {
+            background: #48bb78;
+        }
+        
+        .pomodoro-controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+        
+        .control-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+            background: #f7fafc;
+            color: #4a5568;
+        }
+        
+        .control-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .control-btn.primary {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .control-btn.primary:hover {
+            background: #c82333;
+        }
+        
+        .control-btn i {
+            width: 16px;
+            height: 16px;
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 480px) {
+            .pomodoro-modal {
+                width: 95%;
+                padding: 20px;
+            }
+            
+            .pomodoro-modal .time-text {
+                font-size: 24px;
+            }
+            
+            .timer-svg {
+                width: 180px;
+                height: 180px;
+            }
+            
+            .control-btn {
+                padding: 10px 16px;
+                font-size: 13px;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
     <div class="header">
         <h1>OpgaveStyring</h1>
-        <button class="pause-btn" onclick="taskAgent.pauseToggle()" title="Start pause">
-            <i data-lucide="pause"></i>
-        </button>
+        <div class="header-buttons">
+            <button class="pause-btn" onclick="taskAgent.pauseToggle()" title="Start pause">
+                <i data-lucide="pause"></i>
+            </button>
+            <button class="pomodoro-btn" onclick="taskAgent.openPomodoro()" title="Start Pomodoro">
+                <i data-lucide="timer"></i>
+            </button>
+        </div>
     </div>        <div class="date-bar">
             <button class="date-nav prev" id="prevWeek">
                 <i data-lucide="chevron-left"></i>
@@ -1076,6 +1310,61 @@
 
     <!-- Move Task Modal -->
     
+    <!-- Pomodoro Modal -->
+    <div id="pomodoroModal" class="modal-overlay" style="display: none;">
+        <div class="pomodoro-modal">
+            <div class="pomodoro-header">
+                <h2>Pomodoro Timer</h2>
+                <button class="close-btn" onclick="taskAgent.closePomodoro()">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            
+            <div class="pomodoro-content">
+                <div class="pomodoro-timer">
+                    <div class="timer-circle">
+                        <svg class="timer-svg" width="200" height="200">
+                            <!-- Inner background circle for better text contrast -->
+                            <circle cx="100" cy="100" r="75" fill="rgba(255,255,255,0.9)" stroke="none"></circle>
+                            <circle class="timer-bg" cx="100" cy="100" r="90"></circle>
+                            <circle class="timer-progress" cx="100" cy="100" r="90"></circle>
+                        </svg>
+                        <div class="timer-display">
+                            <span class="time-text">25m 00s</span>
+                            <span class="session-type">Arbejd</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="pomodoro-info">
+                    <div class="session-counter">
+                        Session <span id="currentSession">1</span> af 4
+                    </div>
+                    <div class="session-dots">
+                        <span class="dot active"></span>
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                    </div>
+                </div>
+                
+                <div class="pomodoro-controls">
+                    <button id="playPauseBtn" class="control-btn primary" onclick="taskAgent.togglePomodoro()">
+                        <i data-lucide="play"></i>
+                        <span>Start</span>
+                    </button>
+                    <button class="control-btn" onclick="taskAgent.skipPomodoro()">
+                        <i data-lucide="skip-forward"></i>
+                        <span>Skip</span>
+                    </button>
+                    <button class="control-btn" onclick="taskAgent.resetPomodoro()">
+                        <i data-lucide="rotate-ccw"></i>
+                        <span>Reset</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
     
     <script src="app.js"></script>
 </body>

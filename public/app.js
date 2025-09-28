@@ -28,6 +28,18 @@ class TaskAgent {
         this.timerTimeoutCheck = null;
         this.timerTimeoutWarning = null;
         
+        // Pomodoro functionality
+        this.pomodoroActive = false;
+        this.pomodoroTimer = null;
+        this.pomodoroTimeLeft = 25 * 60; // 25 minutes in seconds
+        this.pomodoroSession = 1; // Current session (1-4)
+        this.pomodoroType = 'work'; // 'work', 'shortBreak', 'longBreak'
+        this.pomodoroSettings = {
+            work: 25 * 60, // 25 minutes
+            shortBreak: 5 * 60, // 5 minutes
+            longBreak: 15 * 60 // 15 minutes
+        };
+        
         // PWA functionality
         this.deferredPrompt = null;
         this.isInstalled = false;
@@ -42,6 +54,7 @@ class TaskAgent {
         await this.loadTasks();
         this.updateDateDisplay();
         this.initializePWA();
+        this.initializePomodoro();
         this.initializeLucideIcons();
     }
     
@@ -79,6 +92,51 @@ class TaskAgent {
         
         // Request notification permission
         this.requestNotificationPermission();
+    }
+    
+    initializePomodoro() {
+        // Initialize pomodoro display
+        this.updatePomodoroDisplay();
+        this.updateSessionDots();
+        
+        // Handle modal clicks (close when clicking outside)
+        document.getElementById('pomodoroModal').addEventListener('click', (e) => {
+            if (e.target.id === 'pomodoroModal') {
+                this.closePomodoro();
+            }
+        });
+        
+        // Handle escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && document.getElementById('pomodoroModal').style.display === 'flex') {
+                this.closePomodoro();
+            }
+        });
+        
+        // Initialize session counter display
+        document.getElementById('currentSession').textContent = this.pomodoroSession;
+    }
+    
+    // Integration with task timer
+    async startPomodoroWithTask(taskId) {
+        // Start regular timer for the task
+        await this.startTimer(taskId);
+        
+        // Open pomodoro modal
+        this.openPomodoro();
+        
+        // Start pomodoro timer
+        this.startPomodoro();
+    }
+    
+    // Override completePomodoroSession to handle task integration
+    async onPomodoroWorkComplete() {
+        // If a task timer is running, this session counts as work time
+        if (this.activeTaskId && this.pomodoroType === 'work') {
+            // The regular task timer continues running, 
+            // so the 25 minutes will be automatically logged
+            console.log(`Pomodoro work session completed for task ${this.activeTaskId}`);
+        }
     }
 
 
@@ -1934,6 +1992,274 @@ class TaskAgent {
         // Reset form mode
         this.formMode = 'add';
         this.currentTaskId = null;
+    }
+    
+    // ===== POMODORO FUNCTIONALITY =====
+    
+    openPomodoro() {
+        document.getElementById('pomodoroModal').style.display = 'flex';
+        this.updatePomodoroDisplay();
+    }
+    
+    closePomodoro() {
+        document.getElementById('pomodoroModal').style.display = 'none';
+        if (this.pomodoroActive) {
+            this.pausePomodoro();
+        }
+    }
+    
+    togglePomodoro() {
+        if (this.pomodoroActive) {
+            this.pausePomodoro();
+        } else {
+            this.startPomodoro();
+        }
+    }
+    
+    startPomodoro() {
+        this.pomodoroActive = true;
+        
+        // Update button appearance
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        playPauseBtn.innerHTML = '<i data-lucide="pause"></i><span>Pause</span>';
+        
+        // Update pomodoro button in header
+        const pomodoroBtn = document.querySelector('.pomodoro-btn');
+        pomodoroBtn.classList.add('active');
+        
+        // Start countdown
+        this.pomodoroTimer = setInterval(() => {
+            this.pomodoroTimeLeft--;
+            this.updatePomodoroDisplay();
+            
+            // Check if session is complete
+            if (this.pomodoroTimeLeft <= 0) {
+                this.completePomodoroSession();
+            }
+        }, 1000);
+        
+        // Re-initialize Lucide icons
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+    
+    pausePomodoro() {
+        this.pomodoroActive = false;
+        
+        if (this.pomodoroTimer) {
+            clearInterval(this.pomodoroTimer);
+            this.pomodoroTimer = null;
+        }
+        
+        // Update button appearance
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        playPauseBtn.innerHTML = '<i data-lucide="play"></i><span>Start</span>';
+        
+        // Update pomodoro button in header
+        const pomodoroBtn = document.querySelector('.pomodoro-btn');
+        pomodoroBtn.classList.remove('active');
+        
+        // Re-initialize Lucide icons
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+    
+    skipPomodoro() {
+        this.completePomodoroSession();
+    }
+    
+    resetPomodoro() {
+        // Pause timer if running
+        this.pausePomodoro();
+        
+        // Reset to work session
+        this.pomodoroSession = 1;
+        this.pomodoroType = 'work';
+        this.pomodoroTimeLeft = this.pomodoroSettings.work;
+        
+        // Update display
+        this.updatePomodoroDisplay();
+        this.updateSessionDots();
+    }
+    
+    completePomodoroSession() {
+        // Pause current session
+        this.pausePomodoro();
+        
+        // Handle task integration
+        this.onPomodoroWorkComplete();
+        
+        // Show notification
+        this.showPomodoroNotification();
+        
+        // Determine next session type
+        if (this.pomodoroType === 'work') {
+            if (this.pomodoroSession === 4) {
+                // Long break after 4th session
+                this.pomodoroType = 'longBreak';
+                this.pomodoroTimeLeft = this.pomodoroSettings.longBreak;
+            } else {
+                // Short break
+                this.pomodoroType = 'shortBreak';
+                this.pomodoroTimeLeft = this.pomodoroSettings.shortBreak;
+            }
+        } else {
+            // Break is over, start next work session
+            this.pomodoroType = 'work';
+            this.pomodoroTimeLeft = this.pomodoroSettings.work;
+            
+            if (this.pomodoroSession === 4) {
+                // Reset after long break
+                this.pomodoroSession = 1;
+            } else {
+                // Increment session
+                this.pomodoroSession++;
+            }
+        }
+        
+        // Update display
+        this.updatePomodoroDisplay();
+        this.updateSessionDots();
+        
+        // Auto-start next session (optional - can be removed if manual start is preferred)
+        setTimeout(() => {
+            if (document.getElementById('pomodoroModal').style.display === 'flex') {
+                this.startPomodoro();
+            }
+        }, 2000);
+    }
+    
+    updatePomodoroDisplay() {
+        // Update timer display with clear minutes and seconds
+        const minutes = Math.floor(this.pomodoroTimeLeft / 60);
+        const seconds = this.pomodoroTimeLeft % 60;
+        
+        // Format with explicit minutes and seconds labels for maximum clarity
+        const timeText = `${minutes}m ${seconds.toString().padStart(2, '0')}s`;
+        
+        const timeTextElement = document.querySelector('#pomodoroModal .time-text');
+        if (timeTextElement) {
+            timeTextElement.textContent = timeText;
+        }
+        
+        // Update session type display
+        const sessionTypeText = this.pomodoroType === 'work' ? 'Arbejd' : 
+                               this.pomodoroType === 'shortBreak' ? 'Kort pause' : 'Lang pause';
+        const sessionTypeElement = document.querySelector('#pomodoroModal .session-type');
+        if (sessionTypeElement) {
+            sessionTypeElement.textContent = sessionTypeText;
+        }
+        
+        // Update session counter
+        if (this.pomodoroType === 'work') {
+            document.getElementById('currentSession').textContent = this.pomodoroSession;
+        }
+        
+        // Update circular progress
+        const totalTime = this.pomodoroSettings[this.pomodoroType];
+        const progress = (totalTime - this.pomodoroTimeLeft) / totalTime;
+        const circumference = 2 * Math.PI * 90; // radius = 90
+        const offset = circumference * (1 - progress);
+        
+        const progressCircle = document.querySelector('#pomodoroModal .timer-progress');
+        if (progressCircle) {
+            progressCircle.style.strokeDashoffset = offset;
+            
+            // Change color based on session type
+            if (this.pomodoroType === 'work') {
+                progressCircle.style.stroke = '#dc3545'; // Red for work
+            } else {
+                progressCircle.style.stroke = '#28a745'; // Green for breaks
+            }
+        }
+    }
+    
+    updateSessionDots() {
+        const dots = document.querySelectorAll('.dot');
+        
+        dots.forEach((dot, index) => {
+            dot.classList.remove('active', 'completed');
+            
+            if (index + 1 < this.pomodoroSession) {
+                dot.classList.add('completed');
+            } else if (index + 1 === this.pomodoroSession && this.pomodoroType === 'work') {
+                dot.classList.add('active');
+            }
+        });
+    }
+    
+    showPomodoroNotification() {
+        const sessionComplete = this.pomodoroType === 'work' ? 
+                               `Arbejdssession ${this.pomodoroSession} fuldført!` :
+                               'Pause fuldført!';
+        
+        const nextSession = this.pomodoroType === 'work' ?
+                           (this.pomodoroSession === 4 ? 'Lang pause starter' : 'Kort pause starter') :
+                           (this.pomodoroSession === 4 ? 'Ny cyklus starter' : `Session ${this.pomodoroSession + 1} starter`);
+        
+        // Browser notification (if permission granted)
+        if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('TaskAgent Pomodoro', {
+                body: `${sessionComplete} ${nextSession}`,
+                icon: '/icons/icon-192x192.png'
+            });
+        }
+        
+        // Visual notification in app
+        const notification = document.createElement('div');
+        notification.className = 'pomodoro-notification';
+        notification.innerHTML = `
+            <div class="notification-content">
+                <h3>${sessionComplete}</h3>
+                <p>${nextSession}</p>
+            </div>
+        `;
+        
+        // Add notification styles
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            z-index: 1001;
+            max-width: 300px;
+            border-left: 4px solid #dc3545;
+            animation: slideIn 0.3s ease;
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Remove notification after 4 seconds
+        setTimeout(() => {
+            notification.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 300);
+        }, 4000);
+        
+        // Add CSS animations if not already present
+        if (!document.querySelector('#pomodoro-animations')) {
+            const style = document.createElement('style');
+            style.id = 'pomodoro-animations';
+            style.textContent = `
+                @keyframes slideIn {
+                    from { transform: translateX(100%); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
+                }
+                @keyframes slideOut {
+                    from { transform: translateX(0); opacity: 1; }
+                    to { transform: translateX(100%); opacity: 0; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
     }
 }
 
