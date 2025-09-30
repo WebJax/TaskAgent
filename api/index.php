@@ -26,6 +26,8 @@ $path = parse_url($request_uri, PHP_URL_PATH);
 $path = str_replace('/api', '', $path); // Remove /api prefix
 $method = $_SERVER['REQUEST_METHOD'];
 
+
+
 // Parse input data
 $input = json_decode(file_get_contents('php://input'), true);
 
@@ -225,21 +227,34 @@ function handleUpdateClient($db, $id, $input) {
 }
 
 function handleDeleteClient($db, $id) {
-    // Check if client has projects and update them
-    $projects = $db->query('SELECT id FROM projects WHERE client_id = ?', [$id]);
-    if (!empty($projects)) {
-        $db->execute('UPDATE projects SET client_id = NULL WHERE client_id = ?', [$id]);
+    try {
+        $pdo = $db->getConnection();
+        
+        // Check if client has projects and update them
+        $stmt = $pdo->prepare('SELECT id FROM projects WHERE client_id = ?');
+        $stmt->execute([$id]);
+        $projects = $stmt->fetchAll();
+        
+        if (!empty($projects)) {
+            $stmt = $pdo->prepare('UPDATE projects SET client_id = NULL WHERE client_id = ?');
+            $stmt->execute([$id]);
+        }
+        
+        $stmt = $pdo->prepare('DELETE FROM clients WHERE id = ?');
+        $stmt->execute([$id]);
+        
+        if ($stmt->rowCount() === 0) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Kunde ikke fundet']);
+            return;
+        }
+        
+        echo json_encode(['message' => 'Kunde slettet succesfuldt']);
+    } catch (Exception $e) {
+        error_log("Delete client error: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Database fejl: ' . $e->getMessage()]);
     }
-    
-    $result = $db->execute('DELETE FROM clients WHERE id = ?', [$id]);
-    
-    if ($result['affected_rows'] === 0) {
-        http_response_code(404);
-        echo json_encode(['error' => 'Kunde ikke fundet']);
-        return;
-    }
-    
-    echo json_encode(['message' => 'Kunde slettet succesfuldt']);
 }
 
 // PROJECT HANDLERS
@@ -336,19 +351,27 @@ function handleCreateTask($db, $input) {
         return;
     }
     
-    $project_id = isset($input['project_id']) ? $input['project_id'] : null;
-    $is_recurring = isset($input['is_recurring']) ? $input['is_recurring'] : false;
-    $recurrence_type = isset($input['recurrence_type']) ? $input['recurrence_type'] : null;
-    $recurrence_interval = isset($input['recurrence_interval']) ? $input['recurrence_interval'] : 1;
-    $next_occurrence = isset($input['next_occurrence']) ? $input['next_occurrence'] : null;
-    
-    $result = $db->execute(
-        'INSERT INTO tasks (title, project_id, is_recurring, recurrence_type, recurrence_interval, next_occurrence) VALUES (?, ?, ?, ?, ?, ?)',
-        [$input['title'], $project_id, $is_recurring, $recurrence_type, $recurrence_interval, $next_occurrence]
-    );
+    try {
+        $project_id = isset($input['project_id']) ? $input['project_id'] : null;
+        $is_recurring = isset($input['is_recurring']) ? (int)$input['is_recurring'] : 0;
+        $recurrence_type = isset($input['recurrence_type']) ? $input['recurrence_type'] : null;
+        $recurrence_interval = isset($input['recurrence_interval']) ? $input['recurrence_interval'] : 1;
+        $next_occurrence = isset($input['next_occurrence']) ? $input['next_occurrence'] : null;
+        
+        // Use direct PDO for debugging
+        $pdo = $db->getConnection();
+        $stmt = $pdo->prepare('INSERT INTO tasks (title, project_id, is_recurring, recurrence_type, recurrence_interval, next_occurrence) VALUES (?, ?, ?, ?, ?, ?)');
+        $stmt->execute([$input['title'], $project_id, $is_recurring, $recurrence_type, $recurrence_interval, $next_occurrence]);
+        $lastId = $pdo->lastInsertId();
+    } catch (Exception $e) {
+        error_log("Create task error: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Database fejl: ' . $e->getMessage()]);
+        return;
+    }
     
     echo json_encode([
-        'id' => $result['last_insert_id'],
+        'id' => $lastId,
         'title' => $input['title'],
         'project_id' => $project_id,
         'is_recurring' => $is_recurring,
@@ -413,51 +436,83 @@ function handleMoveTask($db, $id, $input) {
 }
 
 function handleStartTask($db, $id) {
-    $db->execute('UPDATE tasks SET last_start = NOW() WHERE id = ?', [$id]);
-    echo json_encode(['status' => 'started', 'id' => $id]);
+    try {
+        $pdo = $db->getConnection();
+        $stmt = $pdo->prepare('UPDATE tasks SET last_start = NOW() WHERE id = ?');
+        $stmt->execute([$id]);
+        echo json_encode(['status' => 'started', 'id' => $id]);
+    } catch (Exception $e) {
+        error_log("Start task error: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Database fejl: ' . $e->getMessage()]);
+    }
 }
 
 function handleStopTask($db, $id) {
-    $db->execute("
-        UPDATE tasks
-        SET time_spent = time_spent + TIMESTAMPDIFF(SECOND, last_start, NOW()),
-            last_start = NULL
-        WHERE id = ?
-    ", [$id]);
-    echo json_encode(['status' => 'stopped', 'id' => $id]);
+    try {
+        $pdo = $db->getConnection();
+        $stmt = $pdo->prepare("
+            UPDATE tasks
+            SET time_spent = time_spent + TIMESTAMPDIFF(SECOND, last_start, NOW()),
+                last_start = NULL
+            WHERE id = ?
+        ");
+        $stmt->execute([$id]);
+        echo json_encode(['status' => 'stopped', 'id' => $id]);
+    } catch (Exception $e) {
+        error_log("Stop task error: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Database fejl: ' . $e->getMessage()]);
+    }
 }
 
 function handleStartRecurringTask($db, $id, $input) {
-    if (empty($input['completionDate'])) {
+    if (empty($input['completion_date'])) {
         http_response_code(400);
         echo json_encode(['error' => 'Completion date er påkrævet']);
         return;
     }
     
-    $db->execute("
-        INSERT INTO recurring_task_completions (task_id, completion_date, last_start) 
-        VALUES (?, ?, NOW()) 
-        ON DUPLICATE KEY UPDATE last_start = NOW()
-    ", [$id, $input['completionDate']]);
-    
-    echo json_encode(['status' => 'started', 'taskId' => $id, 'completionDate' => $input['completionDate']]);
+    try {
+        $pdo = $db->getConnection();
+        $stmt = $pdo->prepare("
+            INSERT INTO recurring_task_completions (task_id, completion_date, last_start) 
+            VALUES (?, ?, NOW()) 
+            ON DUPLICATE KEY UPDATE last_start = NOW()
+        ");
+        $stmt->execute([$id, $input['completion_date']]);
+        
+        echo json_encode(['status' => 'started', 'taskId' => $id, 'completionDate' => $input['completion_date']]);
+    } catch (Exception $e) {
+        error_log("Start recurring task error: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Database fejl: ' . $e->getMessage()]);
+    }
 }
 
 function handleStopRecurringTask($db, $id, $input) {
-    if (empty($input['completionDate'])) {
+    if (empty($input['completion_date'])) {
         http_response_code(400);
         echo json_encode(['error' => 'Completion date er påkrævet']);
         return;
     }
     
-    $db->execute("
-        UPDATE recurring_task_completions
-        SET time_spent = COALESCE(time_spent, 0) + TIMESTAMPDIFF(SECOND, last_start, NOW()),
-            last_start = NULL
-        WHERE task_id = ? AND completion_date = ? AND last_start IS NOT NULL
-    ", [$id, $input['completionDate']]);
-    
-    echo json_encode(['status' => 'stopped', 'taskId' => $id, 'completionDate' => $input['completionDate']]);
+    try {
+        $pdo = $db->getConnection();
+        $stmt = $pdo->prepare("
+            UPDATE recurring_task_completions
+            SET time_spent = COALESCE(time_spent, 0) + TIMESTAMPDIFF(SECOND, last_start, NOW()),
+                last_start = NULL
+            WHERE task_id = ? AND completion_date = ? AND last_start IS NOT NULL
+        ");
+        $stmt->execute([$id, $input['completion_date']]);
+        
+        echo json_encode(['status' => 'stopped', 'taskId' => $id, 'completionDate' => $input['completion_date']]);
+    } catch (Exception $e) {
+        error_log("Stop recurring task error: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Database fejl: ' . $e->getMessage()]);
+    }
 }
 
 function handleCompleteTask($db, $id) {
