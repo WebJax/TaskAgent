@@ -353,6 +353,7 @@ function handleCreateTask($db, $input) {
     
     try {
         $project_id = isset($input['project_id']) ? $input['project_id'] : null;
+        $notes = isset($input['notes']) ? $input['notes'] : null;
         $is_recurring = isset($input['is_recurring']) ? (int)$input['is_recurring'] : 0;
         $recurrence_type = isset($input['recurrence_type']) ? $input['recurrence_type'] : null;
         $recurrence_interval = isset($input['recurrence_interval']) ? $input['recurrence_interval'] : 1;
@@ -360,8 +361,8 @@ function handleCreateTask($db, $input) {
         
         // Use direct PDO for debugging
         $pdo = $db->getConnection();
-        $stmt = $pdo->prepare('INSERT INTO tasks (title, project_id, is_recurring, recurrence_type, recurrence_interval, next_occurrence) VALUES (?, ?, ?, ?, ?, ?)');
-        $stmt->execute([$input['title'], $project_id, $is_recurring, $recurrence_type, $recurrence_interval, $next_occurrence]);
+        $stmt = $pdo->prepare('INSERT INTO tasks (title, notes, project_id, is_recurring, recurrence_type, recurrence_interval, next_occurrence) VALUES (?, ?, ?, ?, ?, ?, ?)');
+        $stmt->execute([$input['title'], $notes, $project_id, $is_recurring, $recurrence_type, $recurrence_interval, $next_occurrence]);
         $lastId = $pdo->lastInsertId();
     } catch (Exception $e) {
         error_log("Create task error: " . $e->getMessage());
@@ -388,19 +389,26 @@ function handleUpdateTask($db, $id, $input) {
         return;
     }
     
-    $completed = isset($input['completed']) ? $input['completed'] : false;
-    $result = $db->execute(
-        'UPDATE tasks SET title = ?, completed = ? WHERE id = ?',
-        [$input['title'], $completed, $id]
-    );
-    
-    if ($result['affected_rows'] === 0) {
-        http_response_code(404);
-        echo json_encode(['error' => 'Opgave ikke fundet']);
-        return;
+    try {
+        $pdo = $db->getConnection();
+        $notes = isset($input['notes']) ? $input['notes'] : null;
+        $completed = isset($input['completed']) ? (int)$input['completed'] : 0;
+        
+        $stmt = $pdo->prepare('UPDATE tasks SET title = ?, notes = ?, completed = ? WHERE id = ?');
+        $stmt->execute([$input['title'], $notes, $completed, $id]);
+        
+        if ($stmt->rowCount() === 0) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Opgave ikke fundet']);
+            return;
+        }
+        
+        echo json_encode(['id' => (int)$id, 'title' => $input['title'], 'notes' => $notes, 'completed' => $completed]);
+    } catch (Exception $e) {
+        error_log("Update task error: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Database fejl: ' . $e->getMessage()]);
     }
-    
-    echo json_encode(['id' => (int)$id, 'title' => $input['title'], 'completed' => $completed]);
 }
 
 function handleMoveTask($db, $id, $input) {

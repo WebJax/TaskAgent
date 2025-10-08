@@ -516,12 +516,14 @@ class TaskAgent {
         const title = document.getElementById('taskTitle').value.trim();
         if (!title) return;
         
+        const notes = document.getElementById('taskNotes').value.trim();
         const clientId = document.getElementById('clientSelect').value || null;
         const projectId = document.getElementById('projectSelect').value || null;
         const isRecurring = document.getElementById('isRecurring').checked;
         
         const taskData = {
             title: title,
+            notes: notes || null,
             project_id: projectId
         };
         
@@ -732,7 +734,7 @@ class TaskAgent {
                 // Set up 1-hour timeout check
                 this.setupTimerTimeout();
                 
-                document.getElementById('timerDisplay').classList.add('active');
+                // Timer vises nu direkte under opgaven i stedet
                 this.renderTasks();
             }
         } catch (error) {
@@ -773,7 +775,7 @@ class TaskAgent {
                 // Clear timeout warnings
                 this.clearTimerTimeout();
                 
-                document.getElementById('timerDisplay').classList.remove('active');
+                // Timer skjules automatisk når opgaven re-renderes
                 await this.loadTasks(); // Reload to get updated times
             }
         } catch (error) {
@@ -960,19 +962,20 @@ class TaskAgent {
         if (!this.timerStartTime) return;
         
         const elapsed = Date.now() - this.timerStartTime;
-        const hours = Math.floor(elapsed / 3600000);
-        const minutes = Math.floor((elapsed % 3600000) / 60000);
-        const seconds = Math.floor((elapsed % 60000) / 1000);
         
-        const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        document.getElementById('timerDisplay').textContent = timeString;
-        
-        // Update the task timer in real-time
+        // Update the live timer in the active task
         if (this.activeTaskId) {
-            const taskElement = document.querySelector(`[data-task-id="${this.activeTaskId}"] .task-timer`);
-            if (taskElement) {
-                const task = this.tasks.find(t => t.id === this.activeTaskId);
-                const baseTime = task ? task.time_spent || 0 : 0;
+            const task = this.tasks.find(t => t.id === this.activeTaskId);
+            if (task) {
+                const baseTime = task.time_spent || 0;
+                const totalSeconds = baseTime + Math.floor(elapsed / 1000);
+                const liveTimeString = this.formatTime(totalSeconds);
+                
+                // Find the live timer element in the active task
+                const liveTimerElement = document.querySelector(`.task-item[data-task-id="${this.activeTaskId}"] .task-live-timer`);
+                if (liveTimerElement) {
+                    liveTimerElement.textContent = liveTimeString;
+                }
             }
         }
     }
@@ -1384,8 +1387,11 @@ class TaskAgent {
                 <div class="task-checkbox ${isCompleted ? 'completed' : ''}" 
                      onclick="taskAgent.toggleTask(${task.id})"></div>
                 <div class="task-content ${isCompleted ? 'completed' : ''}">
-                    <div>${task.title}</div>
-                    <div class="task-timer">${totalTime}</div>
+                    <div class="task-title-with-icon">
+                        <span>${task.title}</span>
+                        ${task.notes ? `<span class="task-notes-icon" title="${task.notes.replace(/"/g, '&quot;')}"><i data-lucide="info"></i></span>` : ''}
+                    </div>
+                    ${isActive ? `<div class="task-live-timer">${totalTime}</div>` : `<div class="task-timer">${totalTime}</div>`}
                     ${clientProjectStr ? `<div class="task-client-info">${clientProjectStr}</div>` : ''}
                     ${recurringInfo}
                     ${dateInfo}
@@ -1425,6 +1431,76 @@ class TaskAgent {
         // Initialize Lucide icons after DOM updates
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
+        }
+    }
+    
+    // Inline Client Form
+    showInlineClientForm() {
+        document.getElementById('inlineClientForm').style.display = 'block';
+        document.getElementById('inlineClientName').focus();
+        this.initializeLucideIcons();
+    }
+    
+    hideInlineClientForm() {
+        document.getElementById('inlineClientForm').style.display = 'none';
+        document.getElementById('inlineClientName').value = '';
+    }
+    
+    async saveInlineClient() {
+        const name = document.getElementById('inlineClientName').value.trim();
+        if (!name) return;
+        
+        try {
+            const response = await fetch('/api/clients', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name })
+            });
+            
+            if (response.ok) {
+                const newClient = await response.json();
+                await this.loadClients();
+                document.getElementById('clientSelect').value = newClient.id;
+                this.hideInlineClientForm();
+            }
+        } catch (error) {
+            console.error('Error creating client:', error);
+        }
+    }
+    
+    // Inline Project Form
+    showInlineProjectForm() {
+        document.getElementById('inlineProjectForm').style.display = 'block';
+        document.getElementById('inlineProjectName').focus();
+        this.initializeLucideIcons();
+    }
+    
+    hideInlineProjectForm() {
+        document.getElementById('inlineProjectForm').style.display = 'none';
+        document.getElementById('inlineProjectName').value = '';
+    }
+    
+    async saveInlineProject() {
+        const name = document.getElementById('inlineProjectName').value.trim();
+        if (!name) return;
+        
+        const clientId = document.getElementById('clientSelect').value || null;
+        
+        try {
+            const response = await fetch('/api/projects', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, client_id: clientId })
+            });
+            
+            if (response.ok) {
+                const newProject = await response.json();
+                await this.loadProjects();
+                document.getElementById('projectSelect').value = newProject.id;
+                this.hideInlineProjectForm();
+            }
+        } catch (error) {
+            console.error('Error creating project:', error);
         }
     }
     
@@ -1937,6 +2013,7 @@ class TaskAgent {
         if (!task) return;
         
         document.getElementById('taskTitle').value = task.title;
+        document.getElementById('taskNotes').value = task.notes || '';
         document.getElementById('clientSelect').value = task.client_id || '';
         document.getElementById('projectSelect').value = task.project_id || '';
         document.getElementById('isRecurring').checked = !!task.is_recurring;
@@ -1982,6 +2059,7 @@ class TaskAgent {
 
     resetTaskForm() {
         document.getElementById('taskTitle').value = '';
+        document.getElementById('taskNotes').value = '';
         document.getElementById('clientSelect').value = '';
         document.getElementById('projectSelect').value = '';
         document.getElementById('isRecurring').checked = false;

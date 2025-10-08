@@ -322,6 +322,7 @@
         }
         
         .task-item {
+            position: relative;
             display: flex;
             align-items: center;
             padding: 16px 0;
@@ -408,11 +409,57 @@
             margin-top: 4px;
         }
         
+        .task-live-timer {
+            font-size: 14px;
+            font-weight: 400;
+            color: #718096;
+            margin-top: 4px;
+            font-family: 'SF Mono', 'Monaco', monospace;
+        }
+        
+        .task-title-with-icon {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .task-notes-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            background: rgba(102, 126, 234, 0.15);
+            border-radius: 50%;
+            color: #667eea;
+            cursor: help;
+            transition: all 0.2s;
+        }
+        
+        .task-notes-icon:hover {
+            background: rgba(102, 126, 234, 0.25);
+            transform: scale(1.1);
+        }
+        
+        .task-notes-icon [data-lucide] {
+            width: 12px;
+            height: 12px;
+        }
+        
         .task-actions {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
             opacity: 0;
-            transition: opacity 0.3s;
+            transition: all 0.3s ease;
             display: flex;
             gap: 8px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 8px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
         }
         
         .task-item:hover .task-actions {
@@ -438,7 +485,7 @@
             color: white;
         }
         
-        .timer-display {
+        .pomodoro-timer-display {
             position: fixed;
             top: 20px;
             right: 20px;
@@ -451,7 +498,7 @@
             display: none;
         }
         
-        .timer-display.active {
+        .pomodoro-timer-display.active {
             display: block;
         }
         
@@ -633,6 +680,41 @@
             border-color: #2d5aa0;
         }
         
+        .form-group-with-add {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .form-group-with-add .form-input {
+            margin-bottom: 0;
+            flex: 1;
+        }
+        
+        .add-inline-btn {
+            padding: 12px;
+            border: 2px solid #667eea;
+            background: transparent;
+            color: #667eea;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        
+        .add-inline-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+        
+        .add-inline-btn [data-lucide] {
+            width: 20px;
+            height: 20px;
+        }
+        
         .form-buttons {
             display: flex;
             gap: 12px;
@@ -744,22 +826,40 @@
         }
         
         .edit-btn, .delete-btn, .move-btn {
-            padding: 5px 8px 4px;
+            padding: 8px 10px 6px;
             border: none;
-            border-radius: 4px;
-            font-size: 12px;
+            border-radius: 6px;
+            font-size: 14px;
             cursor: pointer;
-            margin-left: 4px;
+            transition: all 0.2s ease;
+            background: transparent;
         }
         
         .edit-btn {
-            background: #e2e8f0;
             color: #4a5568;
         }
         
+        .edit-btn:hover {
+            background: rgba(74, 85, 104, 0.1);
+            color: #2d3748;
+        }
+        
         .delete-btn {
-            background: #4a5568;
-            color: white;
+            color: #e53e3e;
+        }
+        
+        .delete-btn:hover {
+            background: rgba(229, 62, 62, 0.1);
+            color: #c53030;
+        }
+        
+        .move-btn {
+            color: #667eea;
+        }
+        
+        .move-btn:hover {
+            background: rgba(102, 126, 234, 0.1);
+            color: #5a67d8;
         }
         
         .management-list {
@@ -1242,12 +1342,41 @@
             <!-- Standard task fields -->
             <div id="taskFields">
                 <input type="text" class="form-input" placeholder="Opgave titel..." id="taskTitle">
-                <select class="form-input" id="clientSelect">
-                    <option value="">Vælg kunde (valgfri)</option>
-                </select>
-                <select class="form-input" id="projectSelect">
-                    <option value="">Vælg projekt (valgfri)</option>
-                </select>
+                <textarea class="form-input" placeholder="Kommentar/noter (valgfri)..." id="taskNotes" rows="3" style="resize: vertical;"></textarea>
+                
+                <div class="form-group-with-add">
+                    <select class="form-input" id="clientSelect">
+                        <option value="">Vælg kunde (valgfri)</option>
+                    </select>
+                    <button type="button" class="add-inline-btn" onclick="taskAgent.showInlineClientForm()" title="Opret ny kunde">
+                        <i data-lucide="plus"></i>
+                    </button>
+                </div>
+                
+                <div id="inlineClientForm" style="display: none; margin-bottom: 12px;">
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" class="form-input" placeholder="Kundenavn..." id="inlineClientName" style="flex: 1;">
+                        <button type="button" class="btn-secondary" onclick="taskAgent.saveInlineClient()">Gem</button>
+                        <button type="button" class="btn-secondary" onclick="taskAgent.hideInlineClientForm()">Annuller</button>
+                    </div>
+                </div>
+                
+                <div class="form-group-with-add">
+                    <select class="form-input" id="projectSelect">
+                        <option value="">Vælg projekt (valgfri)</option>
+                    </select>
+                    <button type="button" class="add-inline-btn" onclick="taskAgent.showInlineProjectForm()" title="Opret nyt projekt">
+                        <i data-lucide="plus"></i>
+                    </button>
+                </div>
+                
+                <div id="inlineProjectForm" style="display: none; margin-bottom: 12px;">
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" class="form-input" placeholder="Projektnavn..." id="inlineProjectName" style="flex: 1;">
+                        <button type="button" class="btn-secondary" onclick="taskAgent.saveInlineProject()">Gem</button>
+                        <button type="button" class="btn-secondary" onclick="taskAgent.hideInlineProjectForm()">Annuller</button>
+                    </div>
+                </div>
                 
                 <div class="recurring-section">
                     <label class="checkbox-label">
@@ -1331,7 +1460,7 @@
                             <circle class="timer-bg" cx="100" cy="100" r="90"></circle>
                             <circle class="timer-progress" cx="100" cy="100" r="90"></circle>
                         </svg>
-                        <div class="timer-display">
+                        <div class="pomodoro-timer-display">
                             <span class="time-text">25m 00s</span>
                             <span class="session-type">Arbejd</span>
                         </div>
