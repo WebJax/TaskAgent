@@ -1,0 +1,106 @@
+# TaskAgent .htaccess for Production (Simply.com/Apache)
+# INSTRUKTION: Omdøb denne fil til '.htaccess' når du uploader til Simply.com
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+    
+    # Force HTTPS (valgfri - fjern kommentar hvis du vil tvinge HTTPS)
+    # RewriteCond %{HTTPS} off
+    # RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+    
+    # API routing - forward alle /api/ requests til api/index.php
+    RewriteRule ^api/(.*)$ api/index.php [L,QSA]
+    
+    # Hvis filen findes i public/ mappen, server den derfra
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{DOCUMENT_ROOT}/public%{REQUEST_URI} -f
+    RewriteRule ^(.*)$ public/$1 [L]
+    
+    # Fallback til index.html for alle andre requests (SPA routing)
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ public/index.html [L]
+</IfModule>
+
+# DirectoryIndex - hvilke filer skal bruges som index
+DirectoryIndex index.html index.php
+
+# Disable directory browsing
+Options -Indexes
+
+# Protect sensitive files
+<FilesMatch "\.(env|log|sql|conf|bak|old)$">
+    Require all denied
+</FilesMatch>
+
+# Protect directories
+RedirectMatch 404 /\.git
+RedirectMatch 404 /node_modules
+
+# MIME types
+<IfModule mod_mime.c>
+    AddType application/javascript js mjs
+    AddType application/json json
+    AddType text/css css
+    AddType image/svg+xml svg svgz
+    AddType image/x-icon ico
+    AddType image/png png
+    AddType image/jpeg jpg jpeg
+    AddType font/woff woff
+    AddType font/woff2 woff2
+    AddType application/manifest+json webmanifest
+</IfModule>
+
+# Compression for better performance
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript application/json application/xml
+</IfModule>
+
+# Cache control for production
+<IfModule mod_expires.c>
+    ExpiresActive On
+    
+    # HTML - short cache (1 hour)
+    ExpiresByType text/html "access plus 1 hour"
+    
+    # CSS and JavaScript - moderate cache (1 day)
+    ExpiresByType text/css "access plus 1 day"
+    ExpiresByType application/javascript "access plus 1 day"
+    
+    # Images - long cache (1 month)
+    ExpiresByType image/png "access plus 1 month"
+    ExpiresByType image/jpeg "access plus 1 month"
+    ExpiresByType image/x-icon "access plus 1 month"
+    ExpiresByType image/svg+xml "access plus 1 month"
+    
+    # Fonts - long cache (1 year)
+    ExpiresByType font/woff "access plus 1 year"
+    ExpiresByType font/woff2 "access plus 1 year"
+</IfModule>
+
+# Security headers
+<IfModule mod_headers.c>
+    # Prevent MIME type sniffing
+    Header always set X-Content-Type-Options "nosniff"
+    
+    # XSS Protection
+    Header always set X-XSS-Protection "1; mode=block"
+    
+    # Clickjacking protection
+    Header always set X-Frame-Options "SAMEORIGIN"
+    
+    # CORS headers for API
+    <FilesMatch "\.(php)$">
+        Header always set Access-Control-Allow-Origin "*"
+        Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+        Header always set Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
+    </FilesMatch>
+</IfModule>
+
+# Handle OPTIONS requests for CORS
+<IfModule mod_rewrite.c>
+    RewriteCond %{REQUEST_METHOD} OPTIONS
+    RewriteRule ^(.*)$ $1 [R=200,L]
+</IfModule>

@@ -1,0 +1,36 @@
+# TaskAgent .htaccess for Development (Herd/Nginx/Valet)
+# This file is primarily for Apache fallback - Nginx uses separate config
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # API routing
+    RewriteRule ^api/(.*)$ /api/index.php [L,QSA]
+    
+    # Serve static files if they exist
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    
+    # Fallback to index.html for all other requests (SPA routing)
+    RewriteRule ^.*$ /index.html [L]
+</IfModule>
+
+# Security
+<FilesMatch "\.(env|log|sql)$">
+    Require all denied
+</FilesMatch>
+
+# MIME types
+<IfModule mod_mime.c>
+    AddType application/javascript js
+    AddType text/css css
+    AddType application/json json
+    AddType image/svg+xml svg
+</IfModule>
+
+# No caching during development
+<IfModule mod_headers.c>
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires 0
+</IfModule>

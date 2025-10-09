@@ -489,8 +489,7 @@
             position: fixed;
             top: 20px;
             right: 20px;
-            background: rgba(0,0,0,0.8);
-            color: white;
+            color: #d5d5d5;
             padding: 8px 16px;
             border-radius: 20px;
             font-family: 'SF Mono', monospace;
@@ -1298,9 +1297,10 @@
                 <button class="filter-tab" data-filter="active">AKTIVE</button>
                 <button class="filter-tab" data-filter="completed">UDFØRT</button>
             </div>
-        </div>            <ul class="task-list" id="taskList">
-                <!-- Tasks vil blive indsat her -->
-            </ul>
+        </div>
+        <ul class="task-list" id="taskList">
+            <!-- Tasks vil blive indsat her -->
+        </ul>
         </div>
     </div>
     
@@ -1330,9 +1330,9 @@
             <div class="menu-label">Rapporter</div>
         </button>
     </div>
-    
-    <div class="timer-display" id="timerDisplay">00:00:00</div>
-    
+
+    <!-- <div class="timer-display" id="timerDisplay">00:00:00</div> -->
+
     <div class="pause-display" id="pauseDisplay">Pause: 05:00</div>
     
     <div class="add-task-form" id="addTaskForm">
@@ -1461,7 +1461,7 @@
                             <circle class="timer-progress" cx="100" cy="100" r="90"></circle>
                         </svg>
                         <div class="pomodoro-timer-display">
-                            <span class="time-text">25m 00s</span>
+                            <span class="time-text">25:00</span>
                             <span class="session-type">Arbejd</span>
                         </div>
                     </div>
