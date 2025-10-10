@@ -1,6 +1,9 @@
 # TaskAgent .htaccess for Production (Simply.com/Apache)
 # INSTRUKTION: Omdøb denne fil til '.htaccess' når du uploader til Simply.com
 
+# DirectoryIndex - prøv index.html i public/ først
+DirectoryIndex public/index.html index.html index.php
+
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteBase /
@@ -12,9 +15,11 @@
     # API routing - forward alle /api/ requests til api/index.php
     RewriteRule ^api/(.*)$ api/index.php [L,QSA]
     
+    # Root request - server public/index.html direkte
+    RewriteRule ^$ public/index.html [L]
+    RewriteRule ^index\.html$ public/index.html [L]
+    
     # Hvis filen findes i public/ mappen, server den derfra
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{DOCUMENT_ROOT}/public%{REQUEST_URI} -f
     RewriteRule ^(.*)$ public/$1 [L]
     
@@ -23,9 +28,6 @@
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteRule ^(.*)$ public/index.html [L]
 </IfModule>
-
-# DirectoryIndex - hvilke filer skal bruges som index
-DirectoryIndex index.html index.php
 
 # Disable directory browsing
 Options -Indexes

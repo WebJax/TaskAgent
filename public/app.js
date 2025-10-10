@@ -2215,7 +2215,7 @@ class TaskAgent {
         const seconds = this.pomodoroTimeLeft % 60;
         
         // Format with explicit minutes and seconds labels for maximum clarity
-        const timeText = `${minutes}m ${seconds.toString().padStart(2, '0')}s`;
+        const timeText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
         
         const timeTextElement = document.querySelector('#pomodoroModal .time-text');
         if (timeTextElement) {
