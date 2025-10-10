@@ -28,6 +28,7 @@ function setupDatabase() {
         
         // Drop existing TaskAgent tables if they exist
         echo "🗑️ Fjerner eksisterende TaskAgent tabeller hvis de findes...\n";
+        $pdo->exec("DROP TABLE IF EXISTS recurring_task_hidden_dates");
         $pdo->exec("DROP TABLE IF EXISTS recurring_task_completions");
         $pdo->exec("DROP TABLE IF EXISTS tasks");  
         $pdo->exec("DROP TABLE IF EXISTS projects");
@@ -62,6 +63,7 @@ function setupDatabase() {
             CREATE TABLE tasks (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 title VARCHAR(255) NOT NULL,
+                notes TEXT NULL,
                 project_id INT,
                 estimated_hours TIME NULL,
                 time_spent INT DEFAULT 0,
@@ -73,11 +75,13 @@ function setupDatabase() {
                 recurrence_interval INT DEFAULT 1,
                 next_occurrence DATE NULL,
                 start_date DATE NULL,
+                end_date DATE NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL,
                 INDEX idx_recurrence (is_recurring, recurrence_type, next_occurrence),
-                INDEX idx_created_date (created_at)
+                INDEX idx_created_date (created_at),
+                INDEX idx_end_date (end_date)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
         
@@ -92,6 +96,19 @@ function setupDatabase() {
                 last_start TIMESTAMP NULL COMMENT 'When timer was last started for this completion',
                 FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
                 UNIQUE KEY unique_completion (task_id, completion_date)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+        
+        // Create recurring task hidden dates table
+        $pdo->exec("
+            CREATE TABLE recurring_task_hidden_dates (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                task_id INT NOT NULL,
+                hidden_date DATE NOT NULL,
+                hidden_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+                UNIQUE KEY unique_hidden (task_id, hidden_date),
+                INDEX idx_task_date (task_id, hidden_date)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
         

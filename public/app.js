@@ -4,6 +4,7 @@ class TaskAgent {
         this.projects = [];
         this.clients = [];
         this.recurringCompletions = [];
+        this.hiddenDates = []; // Hidden dates for recurring tasks
         this.selectedDate = new Date();
         this.weekStartDate = new Date();
         this.activeTimer = null;
@@ -51,6 +52,7 @@ class TaskAgent {
         this.initializeEventListeners();
         await this.loadClients();
         await this.loadProjects();
+        await this.loadHiddenDates();
         await this.loadTasks();
         this.updateDateDisplay();
         this.initializePWA();
@@ -447,6 +449,23 @@ class TaskAgent {
         } catch (error) {
         }
     }
+    
+    async loadHiddenDates() {
+        try {
+            const timestamp = Date.now();
+            const response = await fetch(`/api/hidden-dates?t=${timestamp}`, {
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0'
+                }
+            });
+            if (response.ok) {
+                this.hiddenDates = await response.json();
+            }
+        } catch (error) {
+        }
+    }
 
     async loadTasks() {
         try {
@@ -602,9 +621,46 @@ class TaskAgent {
     async deleteTask() {
         if (!this.currentTaskId) return;
         
+        const task = this.tasks.find(t => t.id === this.currentTaskId);
+        if (!task) return;
+        
         try {
+            let url = `/api/tasks/${this.currentTaskId}`;
             const timestamp = Date.now();
-            const response = await fetch(`/api/tasks/${this.currentTaskId}?t=${timestamp}`, {
+            
+            // Hvis det er en gentagen opgave, tjek hvilken delete type
+            if (task.is_recurring) {
+                const deleteType = document.querySelector('input[name="deleteRecurringType"]:checked')?.value || 'this';
+                
+                if (deleteType === 'this') {
+                    // Slet kun denne forekomst - tilføj til "hidden" liste via completion_date
+                    const completionDate = this.selectedDate.toISOString().split('T')[0];
+                    const response = await fetch(`/api/tasks/${this.currentTaskId}/hide-recurring`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ date: completionDate })
+                    });
+                    
+                    if (response.ok) {
+                        await this.loadTasks();
+                        this.hideAddTaskForm();
+                    } else {
+                        alert('Kunne ikke skjule opgaven');
+                    }
+                    return;
+                } else if (deleteType === 'future') {
+                    // Sæt end_date til i dag, så fremtidige forekomster ikke vises
+                    const today = new Date().toISOString().split('T')[0];
+                    url = `/api/tasks/${this.currentTaskId}/end-recurrence?end_date=${today}&t=${timestamp}`;
+                } else {
+                    // 'all' - slet alt inkl. historik
+                    url = `/api/tasks/${this.currentTaskId}?delete_all=true&t=${timestamp}`;
+                }
+            } else {
+                url += `?t=${timestamp}`;
+            }
+            
+            const response = await fetch(url, {
                 method: 'DELETE',
                 headers: {
                     'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -613,6 +669,7 @@ class TaskAgent {
             });
             
             if (response.ok) {
+                await this.loadHiddenDates(); // Reload hidden dates
                 await this.loadTasks();
                 this.hideAddTaskForm();
             } else {
@@ -1223,6 +1280,24 @@ class TaskAgent {
             return false;
         }
         
+        // Check if task has ended (end_date set)
+        if (task.end_date) {
+            const endDate = new Date(task.end_date);
+            endDate.setHours(0, 0, 0, 0);
+            if (checkDate > endDate) {
+                return false;
+            }
+        }
+        
+        // Check if this specific date is hidden
+        const checkDateStr = checkDate.toISOString().split('T')[0];
+        const isHidden = this.hiddenDates.some(h => 
+            h.task_id === task.id && h.hidden_date === checkDateStr
+        );
+        if (isHidden) {
+            return false;
+        }
+        
         // Beregn hvor mange dage/uger/måneder/år der er gået siden start
         const timeDiff = checkDate.getTime() - startDate.getTime();
         
@@ -1415,15 +1490,16 @@ class TaskAgent {
     }
     
     formatTime(seconds) {
-        if (seconds < 60) {
-            return `${seconds}s`;
-        } else if (seconds < 3600) {
-            const minutes = Math.floor(seconds / 60);
-            return `${minutes}m`;
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const secs = seconds % 60;
+        
+        if (hours > 0) {
+            // Format: HH:MM:SS
+            return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
         } else {
-            const hours = Math.floor(seconds / 3600);
-            const minutes = Math.floor((seconds % 3600) / 60);
-            return `${hours}h ${minutes}m`;
+            // Format: MM:SS
+            return `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
         }
     }
     
@@ -1517,6 +1593,7 @@ class TaskAgent {
         document.getElementById('moveFields').style.display = 'none';
         document.getElementById('deleteConfirmation').style.display = 'none';
         document.getElementById('deleteBtn').style.display = 'none';
+        document.getElementById('cancelBtn').style.display = 'inline-flex';
         
         const form = document.getElementById('addTaskForm');
         const title = document.getElementById('formTitle');
@@ -1540,6 +1617,7 @@ class TaskAgent {
                 document.getElementById('taskFields').style.display = 'none';
                 document.getElementById('deleteConfirmation').style.display = 'block';
                 document.getElementById('deleteBtn').style.display = 'inline-flex';
+                document.getElementById('cancelBtn').style.display = 'none';
                 saveBtn.textContent = 'Annuller';
                 this.loadTaskForDelete(taskId);
                 break;
@@ -2032,6 +2110,18 @@ class TaskAgent {
         if (!task) return;
         
         document.getElementById('deleteTaskTitle').textContent = task.title;
+        
+        // Vis recurring options hvis opgaven er gentagen
+        const recurringOptions = document.getElementById('deleteRecurringOptions');
+        if (task.is_recurring) {
+            recurringOptions.style.display = 'block';
+            // Reset til default (kun denne forekomst)
+            document.querySelector('input[name="deleteRecurringType"][value="this"]').checked = true;
+        } else {
+            recurringOptions.style.display = 'none';
+        }
+        
+        this.initializeLucideIcons();
     }
     
     loadTaskForMove(taskId) {

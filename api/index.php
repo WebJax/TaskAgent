@@ -129,12 +129,24 @@ try {
             handleUncompleteRecurringTask($db, $matches[1], $input);
             break;
             
+        case preg_match('/^\/tasks\/(\d+)\/hide-recurring$/', $path, $matches) && $method === 'POST':
+            handleHideRecurringTask($db, $matches[1], $input);
+            break;
+            
+        case preg_match('/^\/tasks\/(\d+)\/end-recurrence$/', $path, $matches) && $method === 'DELETE':
+            handleEndRecurrence($db, $matches[1], $_GET);
+            break;
+            
         case preg_match('/^\/tasks\/(\d+)$/', $path, $matches) && $method === 'DELETE':
-            handleDeleteTask($db, $matches[1]);
+            handleDeleteTask($db, $matches[1], $_GET);
             break;
             
         case $path === '/recurring-completions' && $method === 'GET':
             handleGetRecurringCompletions($db);
+            break;
+            
+        case $path === '/hidden-dates' && $method === 'GET':
+            handleGetHiddenDates($db);
             break;
             
         // REPORTS ROUTES
@@ -600,15 +612,77 @@ function handleUncompleteRecurringTask($db, $id, $input) {
     echo json_encode(['success' => true]);
 }
 
-function handleDeleteTask($db, $id) {
-    $db->execute('DELETE FROM tasks WHERE id = ?', [$id]);
+function handleDeleteTask($db, $id, $params = []) {
+    $deleteAll = isset($params['delete_all']) && $params['delete_all'] === 'true';
+    
+    if ($deleteAll) {
+        // Delete everything - task and all related data
+        $db->execute('DELETE FROM tasks WHERE id = ?', [$id]);
+    } else {
+        // Normal delete (only if not recurring with history)
+        $db->execute('DELETE FROM tasks WHERE id = ?', [$id]);
+    }
+    
     echo json_encode(['status' => 'deleted', 'id' => $id]);
+}
+
+function handleHideRecurringTask($db, $id, $input) {
+    if (empty($input['date'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Date er påkrævet']);
+        return;
+    }
+    
+    try {
+        $pdo = $db->getConnection();
+        
+        // Insert into hidden dates table
+        $stmt = $pdo->prepare("
+            INSERT IGNORE INTO recurring_task_hidden_dates (task_id, hidden_date) 
+            VALUES (?, ?)
+        ");
+        $stmt->execute([$id, $input['date']]);
+        
+        echo json_encode(['status' => 'hidden', 'taskId' => $id, 'date' => $input['date']]);
+    } catch (Exception $e) {
+        error_log("Hide recurring task error: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Database fejl: ' . $e->getMessage()]);
+    }
+}
+
+function handleEndRecurrence($db, $id, $params) {
+    if (empty($params['end_date'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'End date er påkrævet']);
+        return;
+    }
+    
+    try {
+        $pdo = $db->getConnection();
+        
+        // Set end_date to stop future recurrences
+        $stmt = $pdo->prepare("UPDATE tasks SET end_date = ? WHERE id = ?");
+        $stmt->execute([$params['end_date'], $id]);
+        
+        echo json_encode(['status' => 'ended', 'taskId' => $id, 'endDate' => $params['end_date']]);
+    } catch (Exception $e) {
+        error_log("End recurrence error: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Database fejl: ' . $e->getMessage()]);
+    }
 }
 
 function handleGetRecurringCompletions($db) {
     setNoCacheHeaders();
     $completions = $db->query('SELECT * FROM recurring_task_completions ORDER BY completion_date DESC');
     echo json_encode($completions);
+}
+
+function handleGetHiddenDates($db) {
+    setNoCacheHeaders();
+    $hiddenDates = $db->query('SELECT * FROM recurring_task_hidden_dates ORDER BY hidden_date DESC');
+    echo json_encode($hiddenDates);
 }
 
 // REPORT HANDLERS

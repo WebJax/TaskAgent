@@ -658,11 +658,40 @@
             padding: 24px;
             width: 90%;
             max-width: 400px;
-        }        .form-title {
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .form-title {
             font-size: 20px;
             font-weight: 600;
             margin-bottom: 20px;
             color: #2d3748;
+            flex-shrink: 0;
+        }
+        
+        .form-fields-wrapper {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            margin: 0 -12px;
+            padding: 0 12px;
+            margin-bottom: 16px;
+        }
+        
+        .form-fields-wrapper::-webkit-scrollbar {
+            width: 4px;
+        }
+        
+        .form-fields-wrapper::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        
+        .form-fields-wrapper::-webkit-scrollbar-thumb {
+            background: #cbd5e0;
+            border-radius: 4px;
         }
         
         .form-input {
@@ -717,6 +746,10 @@
         .form-buttons {
             display: flex;
             gap: 12px;
+            flex-shrink: 0;
+            margin-top: auto;
+            padding-top: 8px;
+            border-top: 1px solid #e2e8f0;
         }
         
         .btn {
@@ -727,6 +760,8 @@
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
         }
         
         .btn-primary {
@@ -937,6 +972,32 @@
         .checkbox-label input[type="checkbox"] {
             margin: 0;
             cursor: pointer;
+        }
+        
+        .radio-label {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            font-size: 14px;
+            color: #2d3748;
+            cursor: pointer;
+            padding: 12px;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+        
+        .radio-label:hover {
+            background: rgba(0, 0, 0, 0.03);
+        }
+        
+        .radio-label input[type="radio"] {
+            margin-top: 2px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        
+        .radio-label span {
+            flex: 1;
         }
         
         .recurring-options {
@@ -1210,6 +1271,96 @@
         
         /* Responsive Design */
         @media (max-width: 480px) {
+            body {
+                padding: 15px 10px 100px 10px;
+            }
+            
+            .container {
+                max-width: 100%;
+            }
+            
+            .header h1 {
+                font-size: 24px;
+            }
+            
+            /* Form optimering til mobil */
+            .form-content {
+                width: 95%;
+                padding: 20px;
+                max-height: 85vh;
+            }
+            
+            .form-title {
+                font-size: 18px;
+                margin-bottom: 16px;
+            }
+            
+            .form-fields-wrapper {
+                margin-bottom: 12px;
+            }
+            
+            .form-buttons {
+                gap: 8px;
+                padding-top: 12px;
+            }
+            
+            .btn {
+                padding: 14px 10px;
+                font-size: 14px;
+                min-height: 44px; /* iOS anbefalet touch target */
+            }
+            
+            /* Date Bar - Mobile optimeret */
+            .date-bar {
+                gap: 4px;
+                margin-bottom: 20px;
+                padding: 0 45px; /* Plads til pile */
+            }
+            
+            .date-nav {
+                width: 32px;
+                height: 32px;
+            }
+            
+            .date-nav.prev {
+                left: 0;
+            }
+            
+            .date-nav.next {
+                right: 0;
+            }
+            
+            .date-nav [data-lucide] {
+                width: 16px;
+                height: 16px;
+            }
+            
+            .date-item {
+                min-width: 36px;
+                padding: 6px 8px;
+                border-radius: 10px;
+            }
+            
+            .date-item.active {
+                padding: 6px 8px;
+            }
+            
+            .date-day {
+                font-size: 10px;
+            }
+            
+            .date-num {
+                font-size: 16px;
+            }
+            
+            /* Main Card */
+            .main-card {
+                padding: 16px;
+                height: 70vh;
+                max-height: 70vh;
+            }
+            
+            /* Pomodoro Modal */
             .pomodoro-modal {
                 width: 95%;
                 padding: 20px;
@@ -1227,6 +1378,36 @@
             .control-btn {
                 padding: 10px 16px;
                 font-size: 13px;
+            }
+        }
+        
+        /* Ekstra small screens (meget smalle telefoner) */
+        @media (max-width: 360px) {
+            .date-bar {
+                gap: 2px;
+                padding: 0 38px;
+            }
+            
+            .date-nav {
+                width: 28px;
+                height: 28px;
+            }
+            
+            .date-item {
+                min-width: 32px;
+                padding: 4px 6px;
+            }
+            
+            .date-item.active {
+                padding: 4px 6px;
+            }
+            
+            .date-day {
+                font-size: 9px;
+            }
+            
+            .date-num {
+                font-size: 14px;
             }
         }
     </style>
@@ -1339,6 +1520,7 @@
         <div class="form-content">
             <h2 class="form-title" id="formTitle">Tilføj ny opgave</h2>
             
+            <div class="form-fields-wrapper">
             <!-- Standard task fields -->
             <div id="taskFields">
                 <input type="text" class="form-input" placeholder="Opgave titel..." id="taskTitle">
@@ -1423,6 +1605,34 @@
                     <p style="margin: 0; color: #c53030;">Er du sikker på, at du vil slette denne opgave?</p>
                     <div class="task-title-preview" id="deleteTaskTitle" style="margin-top: 8px;">Opgave titel</div>
                 </div>
+                
+                <!-- Recurring task delete options -->
+                <div id="deleteRecurringOptions" style="display: none; margin-top: 16px;">
+                    <div style="background: #fff5e6; padding: 16px; border-radius: 12px; border: 2px solid #ed8936;">
+                        <p style="margin: 0 0 12px 0; color: #744210; font-weight: 600;">
+                            <i data-lucide="alert-circle" style="width: 16px; height: 16px; vertical-align: text-bottom; margin-right: 4px;"></i>
+                            Dette er en gentagende opgave
+                        </p>
+                        <div style="display: flex; flex-direction: column; gap: 12px;">
+                            <label class="radio-label">
+                                <input type="radio" name="deleteRecurringType" value="this" checked>
+                                <span>Slet kun denne ene forekomst (anbefalet)</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="deleteRecurringType" value="future">
+                                <span>Slet denne og alle fremtidige forekomster uden tidtagning</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="deleteRecurringType" value="all">
+                                <span style="color: #c53030; font-weight: 600;">Slet ALT - inkl. historik og tidtagning ⚠️</span>
+                            </label>
+                        </div>
+                        <div style="font-size: 12px; color: #744210; margin-top: 12px; padding: 8px; background: rgba(237, 137, 54, 0.1); border-radius: 6px;">
+                            <strong>Bemærk:</strong> Tidligere forekomster med tidtagning vil aldrig blive slettet (kun ved "Slet ALT")
+                        </div>
+                    </div>
+                </div>
+            </div>
             </div>
             
             <div class="form-buttons">
