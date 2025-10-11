@@ -120,7 +120,8 @@ function setupDatabase() {
             INSERT INTO clients (name) VALUES 
             ('Jaxweb'),
             ('DC'),
-            ('DUR')
+            ('DUR'),
+            ('Privat'),
         ");
         
         // Insert test projects
@@ -128,14 +129,17 @@ function setupDatabase() {
             INSERT INTO projects (name, client_id) VALUES
             ('Mails', 1),
             ('Planlægning', 1),
-            ('kørsel', 1),
-            ('Hjemmesiden', 2),
-            ('Templates', 2),
-            ('Nyhed', 2),
+            ('Kørsel', 1),
+            ('Hjemmesideopdatering, 1),
+            ('Hjemmesiden', 3),
+            ('Templates', 3),
+            ('Nyhed', 3),
+            ('Arrangement', 3),
+            ('Nyhedsbrev', 3),
+            ('SOME', 2),
             ('Arrangement', 2),
-            ('Nyhedsbrev', 2),
-            ('SOME', 3),
-            ('Arrangement', 3)
+            ('Kursus', 4),
+            ('Forandringer', 4)
         ");
         
         echo "✅ Database setup gennemført!\n";
