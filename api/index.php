@@ -405,10 +405,11 @@ function handleUpdateTask($db, $id, $input) {
     try {
         $pdo = $db->getConnection();
         $notes = isset($input['notes']) ? $input['notes'] : null;
+        $project_id = isset($input['project_id']) ? $input['project_id'] : null;
         $completed = isset($input['completed']) ? (int)$input['completed'] : 0;
         
-        $stmt = $pdo->prepare('UPDATE tasks SET title = ?, notes = ?, completed = ? WHERE id = ?');
-        $stmt->execute([$input['title'], $notes, $completed, $id]);
+        $stmt = $pdo->prepare('UPDATE tasks SET title = ?, notes = ?, project_id = ?, completed = ? WHERE id = ?');
+        $stmt->execute([$input['title'], $notes, $project_id, $completed, $id]);
         
         if ($stmt->rowCount() === 0) {
             http_response_code(404);
@@ -416,7 +417,7 @@ function handleUpdateTask($db, $id, $input) {
             return;
         }
         
-        echo json_encode(['id' => (int)$id, 'title' => $input['title'], 'notes' => $notes, 'completed' => $completed]);
+        echo json_encode(['id' => (int)$id, 'title' => $input['title'], 'notes' => $notes, 'project_id' => $project_id, 'completed' => $completed]);
     } catch (Exception $e) {
         error_log("Update task error: " . $e->getMessage());
         http_response_code(500);

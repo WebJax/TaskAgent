@@ -50,6 +50,12 @@ self.addEventListener('fetch', event => {
     return;
   }
 
+  // Only cache GET requests - POST, PUT, DELETE cannot be cached
+  if (event.request.method !== 'GET') {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then(response => {
@@ -70,7 +76,7 @@ self.addEventListener('fetch', event => {
           // Important: Clone the response because it's a stream
           const responseToCache = response.clone();
 
-          // Cache successful responses
+          // Cache successful GET responses
           caches.open(CACHE_NAME).then(cache => {
             cache.put(event.request, responseToCache);
           });

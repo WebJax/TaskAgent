@@ -92,8 +92,8 @@ class TaskAgent {
         // Handle URL parameters for shortcuts
         this.handleShortcutActions();
         
-        // Request notification permission
-        this.requestNotificationPermission();
+        // Note: Notification permission will be requested when user starts a timer
+        // This ensures it's triggered by a user gesture
     }
     
     initializePomodoro() {
@@ -750,6 +750,11 @@ class TaskAgent {
     }
     
     async startTimer(taskId) {
+        // Request notification permission on first timer start (user gesture)
+        if ('Notification' in window && Notification.permission === 'default') {
+            await this.requestNotificationPermission();
+        }
+        
         // Stop any existing timer
         if (this.activeTaskId) {
             await this.stopTimer();
@@ -2133,8 +2138,25 @@ class TaskAgent {
         
         document.getElementById('taskTitle').value = task.title;
         document.getElementById('taskNotes').value = task.notes || '';
-        document.getElementById('clientSelect').value = task.client_id || '';
+        
+        // Find client_id from project if task has a project
+        let clientId = '';
+        if (task.project_id) {
+            const project = this.projects.find(p => p.id === task.project_id);
+            if (project && project.client_id) {
+                clientId = project.client_id;
+            }
+        }
+        
+        // Set client first
+        document.getElementById('clientSelect').value = clientId;
+        
+        // Update project options based on selected client
+        this.updateProjectOptions(clientId);
+        
+        // Then set project
         document.getElementById('projectSelect').value = task.project_id || '';
+        
         document.getElementById('isRecurring').checked = !!task.is_recurring;
         
         if (task.is_recurring) {
