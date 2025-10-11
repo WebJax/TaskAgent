@@ -92,6 +92,7 @@ function setupDatabase() {
                 task_id INT NOT NULL,
                 completion_date DATE NOT NULL,
                 completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                completed BOOLEAN DEFAULT FALSE COMMENT 'Whether this completion is marked as done',
                 time_spent INT DEFAULT 0 COMMENT 'Time spent in seconds for this completion',
                 last_start TIMESTAMP NULL COMMENT 'When timer was last started for this completion',
                 FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
@@ -117,41 +118,29 @@ function setupDatabase() {
         // Insert test clients
         $pdo->exec("
             INSERT INTO clients (name) VALUES 
-            ('ACME Inc.'),
-            ('TechCorp'),
-            ('StartupXYZ')
+            ('Jaxweb'),
+            ('DC'),
+            ('DUR')
         ");
         
         // Insert test projects
         $pdo->exec("
             INSERT INTO projects (name, client_id) VALUES
-            ('Website redesign', 1),
-            ('Mobile app', 2),
-            ('E-commerce platform', 1)
-        ");
-        
-        // Insert test tasks - both normal and recurring
-        $pdo->exec("
-            INSERT INTO tasks (title, project_id, estimated_hours, is_recurring, recurrence_type, recurrence_interval, start_date, created_at) VALUES
-            ('Design forsiden', 1, '02:00:00', FALSE, NULL, 1, '2025-09-01', '2025-09-01 08:00:00'),
-            ('Dagligt standup', 2, '00:30:00', TRUE, 'daily', 1, '2025-08-28', '2025-08-28 09:00:00'),
-            ('Ugentlig rapport', 1, '01:00:00', TRUE, 'weekly', 1, '2025-08-26', '2025-08-26 14:00:00'),
-            ('Implementer checkout', 3, '04:00:00', FALSE, NULL, 1, '2025-09-01', '2025-09-01 10:00:00'),
-            ('Månedlig review', 2, '02:00:00', TRUE, 'monthly', 1, '2025-08-01', '2025-08-01 15:00:00')
-        ");
-        
-        // Insert some test recurring completions
-        $pdo->exec("
-            INSERT INTO recurring_task_completions (task_id, completion_date, completed_at) VALUES
-            (2, '2025-09-20', '2025-09-20 09:30:00'),
-            (2, '2025-09-21', '2025-09-21 09:30:00'),
-            (3, '2025-09-16', '2025-09-16 14:30:00')
+            ('Mails', 1),
+            ('Planlægning', 1),
+            ('kørsel', 1),
+            ('Hjemmesiden', 2),
+            ('Templates', 2),
+            ('Nyhed', 2),
+            ('Arrangement', 2),
+            ('Nyhedsbrev', 2),
+            ('SOME', 3),
+            ('Arrangement', 3)
         ");
         
         echo "✅ Database setup gennemført!\n";
-        echo "🔄 Inklusive gentagende opgaver og completion tracking\n";
         echo "📊 Database: {$database} på {$host}\n";
-        echo "📁 Tabeller: clients, projects, tasks, recurring_task_completions\n";
+        echo "📁 Tabeller: clients, projects, tasks, recurring_task_completions, recurring_task_hidden_dates\n";
         
     } catch (PDOException $e) {
         echo "❌ Database setup fejlede: " . $e->getMessage() . "\n";
