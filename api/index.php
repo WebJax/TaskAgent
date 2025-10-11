@@ -370,11 +370,12 @@ function handleCreateTask($db, $input) {
         $recurrence_type = isset($input['recurrence_type']) ? $input['recurrence_type'] : null;
         $recurrence_interval = isset($input['recurrence_interval']) ? $input['recurrence_interval'] : 1;
         $next_occurrence = isset($input['next_occurrence']) ? $input['next_occurrence'] : null;
+        $start_date = isset($input['start_date']) ? $input['start_date'] : date('Y-m-d');  // Brug modtaget dato eller dagens dato
         
         // Use direct PDO for debugging
         $pdo = $db->getConnection();
-        $stmt = $pdo->prepare('INSERT INTO tasks (title, notes, project_id, is_recurring, recurrence_type, recurrence_interval, next_occurrence) VALUES (?, ?, ?, ?, ?, ?, ?)');
-        $stmt->execute([$input['title'], $notes, $project_id, $is_recurring, $recurrence_type, $recurrence_interval, $next_occurrence]);
+        $stmt = $pdo->prepare('INSERT INTO tasks (title, notes, project_id, is_recurring, recurrence_type, recurrence_interval, next_occurrence, start_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+        $stmt->execute([$input['title'], $notes, $project_id, $is_recurring, $recurrence_type, $recurrence_interval, $next_occurrence, $start_date]);
         $lastId = $pdo->lastInsertId();
     } catch (Exception $e) {
         error_log("Create task error: " . $e->getMessage());
@@ -471,6 +472,8 @@ function handleStartTask($db, $id) {
 function handleStopTask($db, $id) {
     try {
         $pdo = $db->getConnection();
+        
+        // Update time_spent and get the new value
         $stmt = $pdo->prepare("
             UPDATE tasks
             SET time_spent = time_spent + TIMESTAMPDIFF(SECOND, last_start, NOW()),
@@ -478,7 +481,17 @@ function handleStopTask($db, $id) {
             WHERE id = ?
         ");
         $stmt->execute([$id]);
-        echo json_encode(['status' => 'stopped', 'id' => $id]);
+        
+        // Get the updated time_spent
+        $stmt = $pdo->prepare("SELECT time_spent FROM tasks WHERE id = ?");
+        $stmt->execute([$id]);
+        $result = $stmt->fetch();
+        
+        echo json_encode([
+            'status' => 'stopped', 
+            'id' => $id,
+            'time_spent' => $result ? (int)$result['time_spent'] : 0
+        ]);
     } catch (Exception $e) {
         error_log("Stop task error: " . $e->getMessage());
         http_response_code(500);
@@ -495,10 +508,13 @@ function handleStartRecurringTask($db, $id, $input) {
     
     try {
         $pdo = $db->getConnection();
+        
+        // Insert or update - explicitly set completed = FALSE when starting timer
+        // This ensures that starting a timer doesn't accidentally mark task as complete
         $stmt = $pdo->prepare("
-            INSERT INTO recurring_task_completions (task_id, completion_date, last_start) 
-            VALUES (?, ?, NOW()) 
-            ON DUPLICATE KEY UPDATE last_start = NOW()
+            INSERT INTO recurring_task_completions (task_id, completion_date, last_start, completed) 
+            VALUES (?, ?, NOW(), FALSE) 
+            ON DUPLICATE KEY UPDATE last_start = NOW(), completed = FALSE
         ");
         $stmt->execute([$id, $input['completion_date']]);
         
@@ -519,6 +535,8 @@ function handleStopRecurringTask($db, $id, $input) {
     
     try {
         $pdo = $db->getConnection();
+        
+        // Update time_spent
         $stmt = $pdo->prepare("
             UPDATE recurring_task_completions
             SET time_spent = COALESCE(time_spent, 0) + TIMESTAMPDIFF(SECOND, last_start, NOW()),
@@ -527,7 +545,21 @@ function handleStopRecurringTask($db, $id, $input) {
         ");
         $stmt->execute([$id, $input['completion_date']]);
         
-        echo json_encode(['status' => 'stopped', 'taskId' => $id, 'completionDate' => $input['completion_date']]);
+        // Get the updated time_spent
+        $stmt = $pdo->prepare("
+            SELECT time_spent 
+            FROM recurring_task_completions 
+            WHERE task_id = ? AND completion_date = ?
+        ");
+        $stmt->execute([$id, $input['completion_date']]);
+        $result = $stmt->fetch();
+        
+        echo json_encode([
+            'status' => 'stopped', 
+            'taskId' => $id, 
+            'completionDate' => $input['completion_date'],
+            'time_spent' => $result ? (int)$result['time_spent'] : 0
+        ]);
     } catch (Exception $e) {
         error_log("Stop recurring task error: " . $e->getMessage());
         http_response_code(500);
@@ -596,20 +628,63 @@ function handleUncompleteTask($db, $id) {
 
 function handleCompleteRecurringTask($db, $id, $input) {
     $date = $input['date'];
-    $db->execute(
-        'INSERT INTO recurring_task_completions (task_id, completion_date, completed_at) VALUES (?, ?, NOW()) ON DUPLICATE KEY UPDATE completed_at = NOW()',
-        [$id, $date]
-    );
-    echo json_encode(['success' => true]);
+    
+    try {
+        $pdo = $db->getConnection();
+        
+        // Insert or update with completed=TRUE
+        $stmt = $pdo->prepare("
+            INSERT INTO recurring_task_completions (task_id, completion_date, completed_at, completed) 
+            VALUES (?, ?, NOW(), TRUE) 
+            ON DUPLICATE KEY UPDATE completed_at = NOW(), completed = TRUE
+        ");
+        $stmt->execute([$id, $date]);
+        
+        echo json_encode(['success' => true]);
+    } catch (Exception $e) {
+        error_log("Complete recurring task error: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Database fejl: ' . $e->getMessage()]);
+    }
 }
 
 function handleUncompleteRecurringTask($db, $id, $input) {
     $date = $input['date'];
-    $db->execute(
-        'DELETE FROM recurring_task_completions WHERE task_id = ? AND completion_date = ?',
-        [$id, $date]
-    );
-    echo json_encode(['success' => true]);
+    
+    try {
+        $pdo = $db->getConnection();
+        
+        // Check if there's time spent on this completion
+        $stmt = $pdo->prepare("
+            SELECT time_spent FROM recurring_task_completions 
+            WHERE task_id = ? AND completion_date = ?
+        ");
+        $stmt->execute([$id, $date]);
+        $result = $stmt->fetch();
+        
+        if ($result && $result['time_spent'] > 0) {
+            // If there's time spent, just mark as not completed but keep the record
+            $stmt = $pdo->prepare("
+                UPDATE recurring_task_completions 
+                SET completed = FALSE, completed_at = NULL 
+                WHERE task_id = ? AND completion_date = ?
+            ");
+            $stmt->execute([$id, $date]);
+        } else {
+            // If no time spent, delete the record
+            $stmt = $pdo->prepare("
+                DELETE FROM recurring_task_completions 
+                WHERE task_id = ? AND completion_date = ?
+            ");
+            $stmt->execute([$id, $date]);
+        }
+        
+        echo json_encode(['success' => true]);
+    } catch (Exception $e) {
+        error_log("Uncomplete recurring task error: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Database fejl: ' . $e->getMessage()]);
+    }
 }
 
 function handleDeleteTask($db, $id, $params = []) {

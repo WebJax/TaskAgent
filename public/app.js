@@ -543,7 +543,8 @@ class TaskAgent {
         const taskData = {
             title: title,
             notes: notes || null,
-            project_id: projectId
+            project_id: projectId,
+            start_date: this.selectedDate.toISOString().split('T')[0]  // Brug den valgte dato
         };
         
         if (isRecurring) {
@@ -699,10 +700,8 @@ class TaskAgent {
                     });
                     
                     if (response.ok) {
-                        // Fjern fra lokale completions
-                        this.recurringCompletions = this.recurringCompletions.filter(
-                            c => !(c.task_id === taskId && c.completion_date === completionDate)
-                        );
+                        // Reload completions fra serveren for at få korrekt data
+                        await this.loadRecurringCompletions();
                         this.renderTasks();
                     }
                 } else {
@@ -714,12 +713,8 @@ class TaskAgent {
                     });
                     
                     if (response.ok) {
-                        // Tilføj til lokale completions
-                        this.recurringCompletions.push({
-                            task_id: taskId,
-                            completion_date: completionDate,
-                            completed_at: new Date().toISOString()
-                        });
+                        // Reload completions fra serveren for at få korrekt data
+                        await this.loadRecurringCompletions();
                         this.renderTasks();
                     }
                 }
@@ -821,6 +816,38 @@ class TaskAgent {
             }
             
             if (response.ok) {
+                const result = await response.json();
+                
+                // Reload data først for recurring tasks for at få opdateret completion
+                if (task && task.is_recurring) {
+                    await this.loadRecurringCompletions();
+                }
+                
+                // Opdater den lokale data med ny time_spent
+                if (task && task.is_recurring && result.time_spent !== undefined) {
+                    // Opdater recurring completion
+                    const completionDate = this.selectedDate.toISOString().split('T')[0];
+                    const completion = this.recurringCompletions.find(
+                        c => c.task_id === this.activeTaskId && c.completion_date === completionDate
+                    );
+                    if (completion) {
+                        completion.time_spent = result.time_spent;
+                    }
+                } else if (task && result.time_spent !== undefined) {
+                    // Opdater normal task
+                    task.time_spent = result.time_spent;
+                }
+                
+                // Opdater UI med den nye tid INDEN vi clearer timer state
+                const taskElement = document.querySelector(`.task-item[data-task-id="${this.activeTaskId}"]`);
+                if (taskElement) {
+                    const timerElement = taskElement.querySelector('.task-live-timer, .task-timer');
+                    if (timerElement && result.time_spent !== undefined) {
+                        timerElement.textContent = this.formatTime(result.time_spent);
+                        timerElement.className = 'task-timer'; // Skift fra live-timer til normal timer
+                    }
+                }
+                
                 this.activeTaskId = null;
                 this.timerStartTime = null;
                 
@@ -832,8 +859,8 @@ class TaskAgent {
                 // Clear timeout warnings
                 this.clearTimerTimeout();
                 
-                // Timer skjules automatisk når opgaven re-renderes
-                await this.loadTasks(); // Reload to get updated times
+                // Re-render for at opdatere timer styling (fjern "timing" class)
+                this.renderTasks();
             }
         } catch (error) {
         }
@@ -1024,7 +1051,20 @@ class TaskAgent {
         if (this.activeTaskId) {
             const task = this.tasks.find(t => t.id === this.activeTaskId);
             if (task) {
-                const baseTime = task.time_spent || 0;
+                // Get correct base time depending on task type
+                let baseTime = 0;
+                if (task.is_recurring) {
+                    // For recurring tasks, get time from the specific completion
+                    const selectedDateStr = this.selectedDate.toISOString().split('T')[0];
+                    const completion = this.recurringCompletions.find(
+                        c => c.task_id === this.activeTaskId && c.completion_date === selectedDateStr
+                    );
+                    baseTime = completion ? (completion.time_spent || 0) : 0;
+                } else {
+                    // For regular tasks, use the task's time_spent
+                    baseTime = task.time_spent || 0;
+                }
+                
                 const totalSeconds = baseTime + Math.floor(elapsed / 1000);
                 const liveTimeString = this.formatTime(totalSeconds);
                 
@@ -1258,9 +1298,10 @@ class TaskAgent {
     }
     
     isRecurringTaskCompletedOnDate(taskId, date) {
-        return this.recurringCompletions.some(
+        const completion = this.recurringCompletions.find(
             c => c.task_id === taskId && c.completion_date === date
         );
+        return completion ? (completion.completed === true || completion.completed === 1) : false;
     }
 
     shouldShowRecurringTask(task, targetDate) {
