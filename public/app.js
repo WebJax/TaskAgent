@@ -444,9 +444,14 @@ class TaskAgent {
                 }
             });
             if (response.ok) {
-                this.recurringCompletions = await response.json();
+                const data = await response.json();
+                this.recurringCompletions = data;
+                console.log('Loaded recurring completions:', data.length, 'items');
+            } else {
+                console.error('Failed to load recurring completions:', response.status);
             }
         } catch (error) {
+            console.error('Error loading recurring completions:', error);
         }
     }
     
@@ -689,6 +694,7 @@ class TaskAgent {
             // For gentagende opgaver, håndter completion anderledes
             if (task.is_recurring) {
                 const completionDate = this.selectedDate.toISOString().split('T')[0];
+                console.log(`toggleTask: selectedDate=${completionDate}, taskId=${taskId}`);
                 const isCompleted = this.isRecurringTaskCompletedOnDate(taskId, completionDate);
                 
                 if (isCompleted) {
@@ -702,7 +708,10 @@ class TaskAgent {
                     if (response.ok) {
                         // Reload completions fra serveren for at få korrekt data
                         await this.loadRecurringCompletions();
+                        console.log(`After uncomplete: selectedDate=${this.selectedDate.toISOString().split('T')[0]}`);
                         this.renderTasks();
+                    } else {
+                        console.error('Failed to uncomplete recurring task:', await response.text());
                     }
                 } else {
                     // Marker som udført for denne dato
@@ -715,7 +724,10 @@ class TaskAgent {
                     if (response.ok) {
                         // Reload completions fra serveren for at få korrekt data
                         await this.loadRecurringCompletions();
+                        console.log(`After complete: selectedDate=${this.selectedDate.toISOString().split('T')[0]}`);
                         this.renderTasks();
+                    } else {
+                        console.error('Failed to complete recurring task:', await response.text());
                     }
                 }
             } else {
@@ -1236,7 +1248,10 @@ class TaskAgent {
     }
     
     navigateWeek(direction) {
-        this.weekStartDate.setDate(this.weekStartDate.getDate() + (direction * 7));
+        // Create new Date object to avoid modifying the original
+        const newWeekStart = new Date(this.weekStartDate.getTime());
+        newWeekStart.setDate(newWeekStart.getDate() + (direction * 7));
+        this.weekStartDate = newWeekStart;
         this.updateDateBar();
         this.renderTasks();
     }
@@ -1250,10 +1265,11 @@ class TaskAgent {
         // Add active to selected date
         dateElement.classList.add('active');
         
-        // Update selected date
+        // Update selected date - always create a new Date object to avoid reference issues
         const dayIndex = Array.from(dateElement.parentNode.children).indexOf(dateElement) - 1; // -1 for prev button
         if (dayIndex >= 0 && dayIndex < 7) {
-            this.selectedDate = new Date(this.weekStartDate);
+            // Create completely new Date object with getTime() for safe copy
+            this.selectedDate = new Date(this.weekStartDate.getTime());
             this.selectedDate.setDate(this.weekStartDate.getDate() + dayIndex);
             this.renderTasks();
         }
@@ -1306,7 +1322,14 @@ class TaskAgent {
         const completion = this.recurringCompletions.find(
             c => c.task_id === taskId && c.completion_date === date
         );
-        return completion ? (completion.completed === true || completion.completed === 1) : false;
+        const isCompleted = completion ? (completion.completed === true || completion.completed === 1) : false;
+        
+        // Debug logging (kan fjernes senere)
+        if (completion) {
+            console.log(`Task ${taskId} on ${date}: completed=${completion.completed}, time=${completion.time_spent}s`);
+        }
+        
+        return isCompleted;
     }
 
     shouldShowRecurringTask(task, targetDate) {
@@ -1375,6 +1398,8 @@ class TaskAgent {
 
     renderTasks() {
         if (this.currentView !== 'tasks') return;
+        
+        console.log(`renderTasks: selectedDate=${this.selectedDate.toISOString().split('T')[0]}`);
         
         const searchTerm = document.getElementById('searchInput').value.toLowerCase();
         let filteredTasks = this.tasks;
@@ -1939,12 +1964,12 @@ class TaskAgent {
         const today = new Date();
         const dateItems = document.querySelectorAll('.date-item');
         
-        // Set week start to Monday
-        const monday = new Date(this.weekStartDate);
-        const day = monday.getDay();
-        const diff = monday.getDate() - day + (day === 0 ? -6 : 1);
-        monday.setDate(diff);
-        this.weekStartDate = monday;
+        // Set week start to Monday - always create a new Date object to avoid reference issues
+        const tempDate = new Date(this.weekStartDate.getTime()); // Use getTime() for safe copy
+        const day = tempDate.getDay();
+        const diff = tempDate.getDate() - day + (day === 0 ? -6 : 1);
+        tempDate.setDate(diff);
+        this.weekStartDate = tempDate;
         
         dateItems.forEach((item, index) => {
             const date = new Date(this.weekStartDate);
