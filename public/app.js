@@ -444,14 +444,9 @@ class TaskAgent {
                 }
             });
             if (response.ok) {
-                const data = await response.json();
-                this.recurringCompletions = data;
-                console.log('Loaded recurring completions:', data.length, 'items');
-            } else {
-                console.error('Failed to load recurring completions:', response.status);
+                this.recurringCompletions = await response.json();
             }
         } catch (error) {
-            console.error('Error loading recurring completions:', error);
         }
     }
     
@@ -694,7 +689,6 @@ class TaskAgent {
             // For gentagende opgaver, håndter completion anderledes
             if (task.is_recurring) {
                 const completionDate = this.selectedDate.toISOString().split('T')[0];
-                console.log(`toggleTask: selectedDate=${completionDate}, taskId=${taskId}`);
                 const isCompleted = this.isRecurringTaskCompletedOnDate(taskId, completionDate);
                 
                 if (isCompleted) {
@@ -708,10 +702,7 @@ class TaskAgent {
                     if (response.ok) {
                         // Reload completions fra serveren for at få korrekt data
                         await this.loadRecurringCompletions();
-                        console.log(`After uncomplete: selectedDate=${this.selectedDate.toISOString().split('T')[0]}`);
                         this.renderTasks();
-                    } else {
-                        console.error('Failed to uncomplete recurring task:', await response.text());
                     }
                 } else {
                     // Marker som udført for denne dato
@@ -724,10 +715,7 @@ class TaskAgent {
                     if (response.ok) {
                         // Reload completions fra serveren for at få korrekt data
                         await this.loadRecurringCompletions();
-                        console.log(`After complete: selectedDate=${this.selectedDate.toISOString().split('T')[0]}`);
                         this.renderTasks();
-                    } else {
-                        console.error('Failed to complete recurring task:', await response.text());
                     }
                 }
             } else {
@@ -1322,14 +1310,7 @@ class TaskAgent {
         const completion = this.recurringCompletions.find(
             c => c.task_id === taskId && c.completion_date === date
         );
-        const isCompleted = completion ? (completion.completed === true || completion.completed === 1) : false;
-        
-        // Debug logging (kan fjernes senere)
-        if (completion) {
-            console.log(`Task ${taskId} on ${date}: completed=${completion.completed}, time=${completion.time_spent}s`);
-        }
-        
-        return isCompleted;
+        return completion ? (completion.completed === true || completion.completed === 1) : false;
     }
 
     shouldShowRecurringTask(task, targetDate) {
@@ -1398,8 +1379,6 @@ class TaskAgent {
 
     renderTasks() {
         if (this.currentView !== 'tasks') return;
-        
-        console.log(`renderTasks: selectedDate=${this.selectedDate.toISOString().split('T')[0]}`);
         
         const searchTerm = document.getElementById('searchInput').value.toLowerCase();
         let filteredTasks = this.tasks;
@@ -2037,34 +2016,178 @@ class TaskAgent {
         const taskList = document.getElementById('taskList');
         taskList.innerHTML = `
             <div class="management-header">
-                <h3 style="margin-bottom: 20px; color: #2d3748;">Rapporter & Analyser</h3>
-                <p style="color: #718096; margin-bottom: 20px;">Klik på en rapport for at se detaljeret visning</p>
-            </div>
-            <div class="reports-grid">
-                <div class="report-card" onclick="taskAgent.openReportPage('time')">
-                    <div class="report-icon">⏱️</div>
-                    <h4>Tidsrapport</h4>
-                    <p>Se detaljeret tidsforbrug</p>
-                </div>
-                <div class="report-card" onclick="taskAgent.openReportPage('projects')">
-                    <div class="report-icon">📁</div>
-                    <h4>Projekt Analyse</h4>
-                    <p>Projektstatistikker og forbrug</p>
-                </div>
-                <div class="report-card" onclick="taskAgent.openReportPage('clients')">
-                    <div class="report-icon">🏢</div>
-                    <h4>Kunde Analyse</h4>
-                    <p>Kundestatistikker og forbrug</p>
-                </div>
-                <div class="report-card" onclick="taskAgent.openReportPage('productivity')">
-                    <div class="report-icon">📈</div>
-                    <h4>Produktivitet</h4>
-                    <p>Daglige tendenser og mønstre</p>
+                <h3 style="margin-bottom: 20px; color: #2d3748;">Kunde Oversigt</h3>
+                <div class="report-filter">
+                    <label>Periode:</label>
+                    <select id="reportPeriod">
+                        <option value="7">Seneste 7 dage</option>
+                        <option value="30" selected>Seneste 30 dage</option>
+                        <option value="90">Seneste 90 dage</option>
+                        <option value="365">Seneste år</option>
+                        <option value="all">Alt</option>
+                    </select>
                 </div>
             </div>
+            <ul id="reportClientsList" class="report-clients-list"></ul>
         `;
+        
+        // Load report data
+        this.loadReportData();
+        
+        // Setup event listener for period change
+        document.getElementById('reportPeriod').addEventListener('change', () => {
+            this.loadReportData();
+        });
     }
     
+    async loadReportData() {
+        const period = document.getElementById('reportPeriod').value;
+        const clientsList = document.getElementById('reportClientsList');
+        
+        if (!clientsList) return;
+        
+        // Calculate date filter
+        let dateFilter = '';
+        if (period !== 'all') {
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - parseInt(period));
+            dateFilter = startDate.toISOString().split('T')[0];
+        }
+        
+        // Fetch time entries for all tasks
+        const response = await fetch('/api/time-entries');
+        const timeEntries = response.ok ? await response.json() : [];
+        
+        // Group by client and project
+        const clientData = {};
+        
+        timeEntries.forEach(entry => {
+            if (dateFilter && entry.date < dateFilter) return;
+            
+            const clientId = entry.client_id || 0;
+            const clientName = entry.client_name || 'Ingen kunde';
+            const projectId = entry.project_id || 0;
+            const projectName = entry.project_name || 'Intet projekt';
+            const timeSpent = parseInt(entry.time_spent) || 0;
+            
+            if (!clientData[clientId]) {
+                clientData[clientId] = {
+                    name: clientName,
+                    total: 0,
+                    projects: {}
+                };
+            }
+            
+            if (!clientData[clientId].projects[projectId]) {
+                clientData[clientId].projects[projectId] = {
+                    name: projectName,
+                    total: 0
+                };
+            }
+            
+            clientData[clientId].total += timeSpent;
+            clientData[clientId].projects[projectId].total += timeSpent;
+        });
+        
+        // Also fetch recurring completions
+        const recurringResponse = await fetch('/api/recurring-completions');
+        const recurringCompletions = recurringResponse.ok ? await recurringResponse.json() : [];
+        
+        recurringCompletions.forEach(completion => {
+            if (dateFilter && completion.completion_date < dateFilter) return;
+            
+            const task = this.tasks.find(t => t.id === completion.task_id);
+            if (!task) return;
+            
+            const clientId = task.client_id || 0;
+            const clientName = task.client_name || 'Ingen kunde';
+            const projectId = task.project_id || 0;
+            const projectName = task.project_name || 'Intet projekt';
+            const timeSpent = parseInt(completion.time_spent) || 0;
+            
+            if (!clientData[clientId]) {
+                clientData[clientId] = {
+                    name: clientName,
+                    total: 0,
+                    projects: {}
+                };
+            }
+            
+            if (!clientData[clientId].projects[projectId]) {
+                clientData[clientId].projects[projectId] = {
+                    name: projectName,
+                    total: 0
+                };
+            }
+            
+            clientData[clientId].total += timeSpent;
+            clientData[clientId].projects[projectId].total += timeSpent;
+        });
+        
+        // Convert to array and sort by time
+        const clientArray = Object.keys(clientData).map(id => ({
+            id: parseInt(id),
+            ...clientData[id]
+        })).sort((a, b) => b.total - a.total);
+        
+        // Render clients
+        if (clientArray.length === 0) {
+            clientsList.innerHTML = '<li class="no-data">Ingen tidsregistreringer i valgt periode</li>';
+            return;
+        }
+        
+        clientsList.innerHTML = '';
+        
+        clientArray.forEach(client => {
+            const li = document.createElement('li');
+            li.className = 'report-client-item';
+            li.innerHTML = `
+                <div class="report-client-header" data-client-id="${client.id}">
+                    <div class="report-client-info">
+                        <strong>${client.name}</strong>
+                        <span class="report-time">${this.formatTime(client.total)}</span>
+                    </div>
+                    <div class="report-expand-icon">▼</div>
+                </div>
+                <div class="report-projects" id="projects-${client.id}" style="display: none;">
+                    ${this.renderClientProjects(client.projects)}
+                </div>
+            `;
+            clientsList.appendChild(li);
+        });
+        
+        // Add click handlers for expansion
+        document.querySelectorAll('.report-client-header').forEach(header => {
+            header.addEventListener('click', (e) => {
+                const clientId = header.dataset.clientId;
+                const projectsDiv = document.getElementById(`projects-${clientId}`);
+                const icon = header.querySelector('.report-expand-icon');
+                
+                if (projectsDiv.style.display === 'none') {
+                    projectsDiv.style.display = 'block';
+                    icon.textContent = '▲';
+                } else {
+                    projectsDiv.style.display = 'none';
+                    icon.textContent = '▼';
+                }
+            });
+        });
+    }
+    
+    renderClientProjects(projects) {
+        const projectArray = Object.keys(projects).map(id => ({
+            id: parseInt(id),
+            ...projects[id]
+        })).sort((a, b) => b.total - a.total);
+        
+        return projectArray.map(project => `
+            <div class="report-project-item">
+                <span class="report-project-name">${project.name}</span>
+                <span class="report-project-time">${this.formatTime(project.total)}</span>
+            </div>
+        `).join('');
+    }
+
     renderClientsList() {
         const clientsList = document.getElementById('clientsList');
         if (!clientsList) return;

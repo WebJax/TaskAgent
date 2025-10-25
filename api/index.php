@@ -36,6 +36,11 @@ try {
     
     // Route the request
     switch (true) {
+        // Favicon route
+        case $path === '/favicon.ico' && $method === 'GET':
+            serveFavicon();
+            break;
+            
         // Root HTML routes
         case $path === '/':
         case $path === '':
@@ -149,6 +154,11 @@ try {
             handleGetHiddenDates($db);
             break;
             
+        // TIME ENTRIES ROUTE
+        case $path === '/time-entries' && $method === 'GET':
+            handleGetTimeEntries($db);
+            break;
+            
         // REPORTS ROUTES
         case $path === '/reports/time' && $method === 'GET':
             handleTimeReport($db, $_GET);
@@ -189,6 +199,18 @@ function serveHTML($filename) {
     } else {
         http_response_code(404);
         echo json_encode(['error' => 'Fil ikke fundet']);
+    }
+}
+
+// Helper function to serve favicon
+function serveFavicon() {
+    $filepath = '../public/favicon.ico';
+    if (file_exists($filepath)) {
+        header('Content-Type: image/x-icon');
+        header('Cache-Control: public, max-age=31536000'); // Cache 1 year
+        readfile($filepath);
+    } else {
+        http_response_code(404);
     }
 }
 
@@ -887,5 +909,32 @@ function handleProductivityReport($db) {
         'daily_trends' => $dailyStats,
         'hourly_distribution' => $timeDistribution
     ]);
+}
+
+function handleGetTimeEntries($db) {
+    setNoCacheHeaders();
+    
+    // Get all completed non-recurring tasks with time
+    // Use completed_at if available, otherwise created_at
+    $tasks = $db->query("
+        SELECT 
+            t.id as task_id,
+            t.title as task_title,
+            COALESCE(DATE(t.completed_at), DATE(t.created_at)) as date,
+            t.time_spent,
+            t.completed_at,
+            p.id as project_id,
+            p.name as project_name,
+            c.id as client_id,
+            c.name as client_name
+        FROM tasks t
+        LEFT JOIN projects p ON t.project_id = p.id
+        LEFT JOIN clients c ON p.client_id = c.id
+        WHERE t.is_recurring = 0 
+            AND t.time_spent > 0
+        ORDER BY COALESCE(t.completed_at, t.created_at) DESC
+    ");
+    
+    echo json_encode($tasks);
 }
 ?>

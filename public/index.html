@@ -40,6 +40,22 @@
             stroke-width: 2;
             pointer-events: none; /* Prevent icons from blocking button clicks */
         }
+
+        select {
+            appearance: none;           /* Fjern standardpilen (Chrome, Safari, m.fl.) */
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            
+            background: white url("data:image/svg+xml;utf8,<svg fill='black' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>") no-repeat;
+            background-position: right 0.75rem center;  /* Placering af pilen */
+            background-size: 1rem;                      /* Størrelse på pilen */
+            
+            padding-right: 2rem;       /* Giv plads til pilen */
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            height: 2.5rem;
+            font-size: 1rem;
+        }
         
         .pause-btn [data-lucide] {
             width: 16px;
@@ -115,7 +131,7 @@
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 20px 20px 100px 20px; /* Added bottom padding for menu */
         }
@@ -337,11 +353,15 @@
         }
         
         .task-item.timing {
-            background: linear-gradient(45deg, #2d5aa0, #4a5568);
+            background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
             color: white;
             padding: 16px 12px;
             box-shadow: 0 4px 15px rgba(45, 90, 160, 0.3);
             animation: pulse 2s infinite;
+        }
+
+        .task-item:has(.completed) {
+            background-color: #47bb78;
         }
         
         @keyframes pulse {
@@ -365,12 +385,6 @@
             border-color: #a0aec0;
         }
         
-        .task-checkbox.completed {
-            background: #48bb78;
-            border-color: #48bb78;
-            position: relative;
-        }
-        
         .task-checkbox.completed:after {
             content: '✓';
             color: white;
@@ -390,8 +404,8 @@
         }
         
         .task-content.completed {
-            text-decoration: line-through;
-            color: #a0aec0;
+            background-color: #48bb78;
+            color: white;
         }
         
         .task-item.timing .task-content {
@@ -405,14 +419,14 @@
         
         .task-timer {
             font-size: 14px;
-            color: #718096;
+            color: #4a5568;
             margin-top: 4px;
         }
         
         .task-live-timer {
             font-size: 14px;
-            font-weight: 400;
-            color: #718096;
+            font-weight: 600;
+            color: #e3f2fd;
             margin-top: 4px;
             font-family: 'SF Mono', 'Monaco', monospace;
         }
@@ -633,6 +647,117 @@
             color: #718096;
             margin: 0;
             font-size: 14px;
+        }
+        
+        /* Report Filter */
+        .report-filter {
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .report-filter label {
+            color: #4a5568;
+            font-weight: 500;
+        }
+        
+        .report-filter select {
+            padding: 8px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            background: white;
+            color: #2d3748;
+            font-size: 14px;
+        }
+        
+        /* Report Clients List */
+        .report-clients-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .report-client-item {
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .report-client-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .report-client-header:hover {
+            background: #f7fafc;
+        }
+        
+        .report-client-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            flex: 1;
+        }
+        
+        .report-client-info strong {
+            color: #2d3748;
+            font-size: 16px;
+        }
+        
+        .report-time {
+            color: #2d5aa0;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .report-expand-icon {
+            color: #a0aec0;
+            font-size: 12px;
+            transition: transform 0.2s;
+        }
+        
+        .report-projects {
+            background: #f7fafc;
+            border-top: 1px solid #e2e8f0;
+            padding: 12px 16px;
+        }
+        
+        .report-project-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .report-project-item:last-child {
+            border-bottom: none;
+        }
+        
+        .report-project-name {
+            color: #4a5568;
+            font-size: 14px;
+        }
+        
+        .report-project-time {
+            color: #718096;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #a0aec0;
+            background: white;
+            border-radius: 8px;
         }
         
         .add-task-form {
@@ -902,13 +1027,6 @@
             padding: 0;
         }
         
-        .management-header {
-            flex-shrink: 0;
-            padding-bottom: 12px;
-            border-bottom: 1px solid #e2e8f0;
-            margin-bottom: 12px;
-        }
-        
         .scrollable-management-list {
             flex: 1;
             overflow-y: auto;
@@ -1026,9 +1144,6 @@
             margin-bottom: 20px;
         }
         
-        .add-project-form {
-            margin-bottom: 20px;
-        }
         
         .add-project-form .add-form {
             margin-bottom: 12px;
@@ -1378,6 +1493,48 @@
             .control-btn {
                 padding: 10px 16px;
                 font-size: 13px;
+            }
+            
+            /* Report styling for mobile */
+            .report-filter {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+            
+            .report-filter select {
+                width: 100%;
+            }
+            
+            .report-client-header {
+                padding: 12px;
+            }
+            
+            .report-client-info strong {
+                font-size: 14px;
+            }
+            
+            .report-time {
+                font-size: 13px;
+            }
+            
+            .report-projects {
+                padding: 8px 12px;
+            }
+            
+            .report-project-item {
+                padding: 6px 0;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 4px;
+            }
+            
+            .report-project-name {
+                font-size: 13px;
+            }
+            
+            .report-project-time {
+                font-size: 12px;
             }
         }
         

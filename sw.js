@@ -1,16 +1,11 @@
 // Service Worker for TaskAgent PWA
-const CACHE_NAME = 'taskagent-v1.0.0';
+const CACHE_NAME = 'taskagent-v1.0.2';
 const urlsToCache = [
   '/',
   '/app.js',
-  '/reports',
   '/reports.js',
-  '/manifest.json',
-  // Cache API endpoints for offline support
-  '/tasks',
-  '/clients', 
-  '/projects',
-  '/recurring-completions'
+  '/manifest.json'
+  // Removed favicon.ico to avoid 404 errors
 ];
 
 // Install event - cache resources
@@ -18,7 +13,12 @@ self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        return cache.addAll(urlsToCache);
+        // Cache files one by one to avoid failing on 404s
+        return Promise.allSettled(
+          urlsToCache.map(url => 
+            cache.add(url).catch(err => console.log('Failed to cache:', url))
+          )
+        );
       })
       .then(() => {
         return self.skipWaiting();
