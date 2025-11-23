@@ -1,11 +1,11 @@
 // Service Worker for TaskAgent PWA
-const CACHE_NAME = 'taskagent-v1.0.2';
+const CACHE_NAME = 'taskagent-v1.0.3';
 const urlsToCache = [
   '/',
   '/app.js',
   '/reports.js',
+  '/lucide.js',
   '/manifest.json'
-  // Removed favicon.ico to avoid 404 errors
 ];
 
 // Install event - cache resources

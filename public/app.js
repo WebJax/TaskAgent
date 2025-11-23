@@ -57,7 +57,18 @@ class TaskAgent {
         this.updateDateDisplay();
         this.initializePWA();
         this.initializePomodoro();
-        this.initializeLucideIcons();
+        
+        // Wait for Lucide to load before initializing icons
+        this.waitForLucide();
+    }
+    
+    waitForLucide() {
+        // Check if lucide is loaded, if not wait and try again
+        if (typeof lucide !== 'undefined') {
+            this.initializeLucideIcons();
+        } else {
+            setTimeout(() => this.waitForLucide(), 50);
+        }
     }
     
     initializePWA() {
@@ -1516,9 +1527,15 @@ class TaskAgent {
                         <span>${task.title}</span>
                         ${task.notes ? `<span class="task-notes-icon" title="${task.notes.replace(/"/g, '&quot;')}"><i data-lucide="info"></i></span>` : ''}
                     </div>
-                    ${isActive ? `<div class="task-live-timer">${totalTime}</div>` : `<div class="task-timer">${totalTime}</div>`}
-                    ${clientProjectStr ? `<div class="task-client-info">${clientProjectStr}</div>` : ''}
-                    ${recurringInfo}
+                    <div class="task-meta-row">
+                        <div class="task-meta-left">
+                            ${isActive ? `<div class="task-live-timer">${totalTime}</div>` : `<div class="task-timer">${totalTime}</div>`}
+                        </div>
+                        <div class="task-meta-right">
+                            ${clientProjectStr ? `<div class="task-client-info">${clientProjectStr}</div>` : ''}
+                            ${recurringInfo}
+                        </div>
+                    </div>
                     ${dateInfo}
                 </div>
                 <div class="task-actions">

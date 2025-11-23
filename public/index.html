@@ -29,8 +29,8 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/icons/icon-16x16.png">
     
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <!-- Lucide Icons - Local version for VPN compatibility -->
+    <script src="/lucide.js"></script>
     
     <style>
         /* Lucide Icons Base Styling */
@@ -341,7 +341,7 @@
             position: relative;
             display: flex;
             align-items: center;
-            padding: 16px 0;
+            padding: 4px 0;
             border-bottom: 1px solid #f1f5f9;
             transition: all 0.3s;
             border-radius: 8px;
@@ -352,22 +352,8 @@
             border-bottom: none;
         }
         
-        .task-item.timing {
-            background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 16px 12px;
-            box-shadow: 0 4px 15px rgba(45, 90, 160, 0.3);
-            animation: pulse 2s infinite;
-        }
-
         .task-item:has(.completed) {
             background-color: #47bb78;
-        }
-        
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.02); }
-            100% { transform: scale(1); }
         }
         
         .task-checkbox {
@@ -408,27 +394,40 @@
             color: white;
         }
         
-        .task-item.timing .task-content {
-            color: white;
+        .task-item.timing .task-timer {
+            font-weight: 700; /* Kun fed tekst når timer kører */
         }
         
-        .task-item.timing .task-timer {
-            color: rgba(255, 255, 255, 0.9);
-            font-weight: 600;
+        .task-meta-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 4px;
+            gap: 12px;
+        }
+        
+        .task-meta-left {
+            flex-shrink: 0;
+        }
+        
+        .task-meta-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: auto;
         }
         
         .task-timer {
+            display: inline-block;
             font-size: 14px;
             color: #4a5568;
-            margin-top: 4px;
         }
         
         .task-live-timer {
+            display: inline-block;
             font-size: 14px;
-            font-weight: 600;
-            color: #e3f2fd;
-            margin-top: 4px;
-            font-family: 'SF Mono', 'Monaco', monospace;
+            font-weight: 700;
+            color: #4a5568;
         }
         
         .task-title-with-icon {
@@ -579,7 +578,6 @@
             display: none;
             cursor: pointer;
             transition: all 0.3s;
-            animation: pausePulse 2s infinite;
         }
         
         .pause-display:hover {
@@ -588,12 +586,6 @@
         
         .pause-display.active {
             display: block;
-        }
-        
-        @keyframes pausePulse {
-            0% { opacity: 0.8; }
-            50% { opacity: 1; }
-            100% { opacity: 0.8; }
         }
         
         @keyframes slideDown {
@@ -1128,9 +1120,9 @@
         }
         
         .task-recurring {
+            display: inline-block;
             font-size: 11px;
             color: #805ad5;
-            margin-top: 2px;
             font-weight: 500;
         }
         
@@ -1166,9 +1158,9 @@
         }
         
         .task-client-info {
+            display: inline-block;
             font-size: 12px;
             color: #a0aec0;
-            margin-top: 2px;
         }
         
         .task-date {
@@ -1178,13 +1170,7 @@
             font-weight: 500;
         }
         
-        .task-item.timing .task-client-info {
-            color: rgba(255, 255, 255, 0.8);
-        }
-        
-        .task-item.timing .task-date {
-            color: rgba(255, 255, 255, 0.9);
-        }
+        /* Ingen tekstfarve ændringer under timing */
         
         /* Pomodoro Modal Styles */
         .modal-overlay {
