@@ -29,7 +29,8 @@ class Database {
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES => false,
-                PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4"
+                // PHP 8.5+ compatible: Use Pdo\Mysql::ATTR_INIT_COMMAND instead of deprecated PDO::MYSQL_ATTR_INIT_COMMAND
+                (defined('Pdo\Mysql::ATTR_INIT_COMMAND') ? constant('Pdo\Mysql::ATTR_INIT_COMMAND') : PDO::MYSQL_ATTR_INIT_COMMAND) => "SET NAMES utf8mb4"
             ];
             
             $this->connection = new PDO($dsn, $username, $password, $options);
