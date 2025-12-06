@@ -2657,9 +2657,74 @@ class TaskAgent {
             document.head.appendChild(style);
         }
     }
+    
+    // Theme management methods
+    toggleThemeSelector() {
+        const modal = document.getElementById('themeModal');
+        modal.style.display = 'flex';
+        this.updateThemeSelector();
+        this.initializeLucideIcons();
+    }
+    
+    closeThemeSelector() {
+        const modal = document.getElementById('themeModal');
+        modal.style.display = 'none';
+    }
+    
+    setTheme(themeName) {
+        // Apply theme to body
+        if (themeName === 'default') {
+            document.body.removeAttribute('data-theme');
+        } else {
+            document.body.setAttribute('data-theme', themeName);
+        }
+        
+        // Save to localStorage
+        localStorage.setItem('taskagent-theme', themeName);
+        
+        // Update UI
+        this.updateThemeSelector();
+        
+        // Update meta theme-color
+        const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+        const themeColors = {
+            'default': '#667eea',
+            'nordic': '#4facfe',
+            'forest': '#11998e',
+            'sunset': '#f59e0b',
+            'ocean': '#3b82f6',
+            'rose': '#ec4899'
+        };
+        if (metaThemeColor) {
+            metaThemeColor.setAttribute('content', themeColors[themeName] || themeColors.default);
+        }
+    }
+    
+    updateThemeSelector() {
+        const currentTheme = document.body.getAttribute('data-theme') || 'default';
+        const themeOptions = document.querySelectorAll('.theme-option');
+        
+        themeOptions.forEach(option => {
+            const theme = option.getAttribute('data-theme');
+            if (theme === currentTheme) {
+                option.classList.add('active');
+            } else {
+                option.classList.remove('active');
+            }
+        });
+    }
+    
+    loadSavedTheme() {
+        const savedTheme = localStorage.getItem('taskagent-theme');
+        if (savedTheme) {
+            this.setTheme(savedTheme);
+        }
+    }
 }
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     window.taskAgent = new TaskAgent();
+    // Load saved theme
+    window.taskAgent.loadSavedTheme();
 });
